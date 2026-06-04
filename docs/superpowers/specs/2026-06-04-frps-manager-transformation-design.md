@@ -351,3 +351,32 @@ DELETE /nathole/discover
 - 配置一条告警规则并触发，能在前端看到告警事件。
 - 仓库内 **无残留 frpc 客户端管理代码**（彻底替换）。
 - `openapi.yaml` / `docs/API.zh-CN.md` / 前端 schema 与实际 API 一致。
+
+---
+
+## 13. 复审修正（2026-06-04，基于 frp v0.69.1 源码二次核验）
+
+逐条对照 module 缓存源码（`frp@v0.69.1`）复核 §2 的 6 条技术结论：5 条成立，2 处会直接改变实现，必须修正。
+
+### 13.1 【严重·推翻 §3.2】webServer Port=0 不会绑定随机端口
+
+证据：`server/service.go:146-157` —— frps **仅当 `cfg.WebServer.Port > 0`** 才 `httppkg.NewServer` 起 webServer 并调 `EnableMem()`；`Port==0` 时 webServer 为 nil，**完全不监听、无从回读端口、无 mem、无 `/api/clients`**。
+
+- 故 §3.2「强制覆盖为 `127.0.0.1:0`（让 OS 选空闲端口）」**错误**，会让 worker 彻底失去 loopback 数据通道。
+- 修正：worker 必须由**父进程预分配一个非零空闲 loopback 端口**（`net.Listen("tcp","127.0.0.1:0")` 取端口后立即 Close），经 `--webport` 传入，worker 设 `sc.WebServer.Port = <非零端口>`。这就是 P1 Task 3 Step 3 的「预分配」策略——但它不再是可选优化，而是**唯一可行解**。§5.1 关于 webServer 改写的描述同步更正。
+
+### 13.2 【确认·维持】EnableMem 非幂等 —— 但子进程模型已规避翻倍
+
+证据：`pkg/metrics/aggregate/server.go:23-45` —— `EnableMem()` 直接 `sm.Add(...)` append 到全局切片、无去重，重复调确实翻倍。但子进程模型下**每个 worker 是独立进程**，frps 在 Port>0 时**自己**恰好调一次，我们**绝不再调** → 单进程内唯一一次 → 无翻倍。结论 5 维持。
+
+### 13.3 【确认】frps 内置路由全部存在（P2 链路成立）
+
+`server/api_router.go:42-48`：`/api/serverinfo`、`/api/proxy/{type}`、`/api/proxy/{type}/{name}`、`/api/traffic/{name}`、`/api/clients`、`/api/clients/{key}` 均存在（按名查单 proxy 实际路由是 `/api/proxies/{name}`）。
+
+### 13.4 【签名修正·影响封装代码】
+
+- ✅ `server.NewService(cfg *v1.ServerConfig) (*Service, error)`。
+- ✅ `(*Service).Run(ctx)` **无返回值**（阻塞至 ctx.Done）；`(*Service).Close() error`。封装按 void 处理正确。
+- ⚠️ `(*v1.ServerConfig).Complete() error` **返回 error** —— §5.1 的 `Complete()` 包装须改为返回 error。
+- ⚠️ 服务端校验是**方法** `(*validation.ConfigValidator).ValidateServerConfig(c) (Warning, error)`，**非包级函数**；validate handler 须先构造 validator。
+- ⚠️ mem.Collector 实际方法名：`GetServer()`/`GetProxiesByType(type)`/`GetProxyByName(name)`/`GetProxiesByTypeAndName(type,name)`/`GetProxyTraffic(name)`/`ClearOfflineProxies()`。
