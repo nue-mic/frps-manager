@@ -28,16 +28,9 @@ import { Link } from 'react-router-dom';
 import client from '../api/client';
 import { useEventStream, useEventSubscription } from '../events/EventStreamContext';
 import type { BusEvent, EventType } from '../events/types';
+import type { Snapshot } from '../api/types';
 
 const { Title, Text } = Typography;
-
-interface ConfigItem {
-  id: string;
-  name?: string;
-  serverAddr?: string;
-  serverPort?: number;
-  state?: string;
-}
 
 interface SparkPoint {
   t: number;
@@ -105,7 +98,7 @@ const Dashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [sysInfo, setSysInfo] = useState<Record<string, any> | null>(null);
   const [history, setHistory] = useState<SparkPoint[]>([]);
-  const [configs, setConfigs] = useState<ConfigItem[]>([]);
+  const [configs, setConfigs] = useState<Snapshot[]>([]);
   const [recentEvents, setRecentEvents] = useState<BusEvent[]>([]);
   const prevNet = useRef<{ ts: number; rx: number; tx: number } | null>(null);
   const [netSpeed, setNetSpeed] = useState({ rx: 0, tx: 0 });
@@ -126,7 +119,7 @@ const Dashboard: React.FC = () => {
     try {
       const resp = await client.get('/api/v1/configs');
       if (resp.status === 200) {
-        const items = (resp.data?.items ?? resp.data ?? []) as ConfigItem[];
+        const items = (resp.data?.items ?? []) as Snapshot[];
         setConfigs(items);
       }
     } catch {
@@ -193,7 +186,7 @@ const Dashboard: React.FC = () => {
   const diskPercent = Math.round(mainDisk.used_percent ?? 0);
 
   const runningCount = configs.filter((c) => c.state === 'started').length;
-  const errorCount = configs.filter((c) => c.state === 'error').length;
+  const errorCount = configs.filter((c) => !!c.last_error).length;
 
   const recentReversed = useMemo(() => recentEvents.slice().reverse(), [recentEvents]);
 
@@ -223,7 +216,7 @@ const Dashboard: React.FC = () => {
               仪表盘
             </Title>
             <Text type="secondary" style={{ fontSize: 13 }}>
-              一眼掌握 frpc 实例、宿主机资源与事件流的实时状态。
+              一眼掌握 frps 实例、宿主机资源与事件流的实时状态。
             </Text>
           </Space>
           <Space size="middle" wrap>
@@ -407,13 +400,13 @@ const Dashboard: React.FC = () => {
       <Row gutter={[16, 16]}>
         <Col xs={24}>
           <Card
-            title={<Space><DeploymentUnitOutlined /> FRPC 实例</Space>}
+            title={<Space><DeploymentUnitOutlined /> FRPS 实例</Space>}
             styles={{ body: { padding: 18 } }}
             style={{ borderRadius: 10 }}
             extra={<Link to="/configs">管理实例</Link>}
           >
             {configs.length === 0 ? (
-              <Empty description="还没有配置任何 frpc 实例" />
+              <Empty description="还没有配置任何 frps 实例" />
             ) : (
               <Row gutter={[12, 12]}>
                 {configs.map((c) => (
@@ -427,7 +420,7 @@ const Dashboard: React.FC = () => {
                             background:
                               c.state === 'started'
                                 ? token.colorSuccess
-                                : c.state === 'error'
+                                : c.last_error
                                 ? token.colorError
                                 : token.colorFillSecondary,
                           }}
@@ -437,14 +430,14 @@ const Dashboard: React.FC = () => {
                             {c.name || c.id.slice(0, 8)}
                           </Text>
                           <Text type="secondary" style={{ fontSize: 12 }} ellipsis>
-                            {c.serverAddr ? `${c.serverAddr}:${c.serverPort ?? '?'}` : '—'}
+                            ID: {c.id}
                           </Text>
                           <Tag
                             bordered={false}
                             color={
                               c.state === 'started'
                                 ? 'success'
-                                : c.state === 'error'
+                                : c.last_error
                                 ? 'error'
                                 : c.state === 'starting' || c.state === 'stopping'
                                 ? 'processing'

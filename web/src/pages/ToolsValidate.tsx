@@ -16,19 +16,20 @@ import client from '../api/client';
 
 const { Title, Text, Paragraph } = Typography;
 
-const SAMPLE_TOML = `serverAddr = "frp.example.com"
-serverPort = 7000
+const SAMPLE_TOML = `bindAddr = "0.0.0.0"
+bindPort = 7000
+
+vhostHTTPPort = 80
+vhostHTTPSPort = 443
+subDomainHost = "frp.example.com"
 
 [auth]
 method = "token"
 token = "your-token"
 
-[[proxies]]
-name = "ssh"
-type = "tcp"
-localIP = "127.0.0.1"
-localPort = 22
-remotePort = 6000
+[log]
+level = "info"
+maxDays = 3
 `;
 
 interface ValidateResp {
@@ -74,7 +75,7 @@ const ToolsValidate: React.FC = () => {
             <FileTextOutlined /> 配置校验
           </Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
-            粘贴 frpc 的 TOML/INI 配置，由后端解析器完整解析后返回错误明细。不会修改任何持久化数据。
+            粘贴 frps 服务端的 TOML 配置，由后端解析器完整解析后返回错误明细。不会修改任何持久化数据。
           </Text>
         </Space>
       </Card>
@@ -136,7 +137,7 @@ const ToolsValidate: React.FC = () => {
               showIcon
               icon={<CheckCircleOutlined />}
               message="配置完全合法"
-              description="该配置可以被 frpc 正常加载。"
+              description="该配置可以被 frps 正常加载。"
               style={{ borderRadius: 10 }}
             />
           ) : (
