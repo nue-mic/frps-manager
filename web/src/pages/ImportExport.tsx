@@ -252,7 +252,7 @@ const ImportExport: React.FC = () => {
                   { type: 'url', message: '请输入有效的网络地址' },
                 ]}
               >
-                <Input placeholder="http://example.com/frpc.toml" />
+                <Input placeholder="http://example.com/frps.toml" />
               </Form.Item>
 
               <Form.Item style={{ marginBottom: 0, textAlign: 'right' }}>

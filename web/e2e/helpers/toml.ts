@@ -1,18 +1,13 @@
 /**
- * 生成最小可用 ClientConfigV1 JSON. 每个 instance 都默认指向 127.0.0.1:65530
- * 这个永远拒绝连接的端口, 配合 loginFailExit=false 让 frpc 持续重连,
- * 从而产生稳定的日志流供测试用.
- *
- * 注意: 必须包含 auth.token, 否则进入「常规配置」UI 编辑时 form validation
- * 会因 token required 而静默拒绝保存。E2E 不在乎 token 内容，给个占位值即可。
+ * 生成最小可用 frps ServerConfig（API 创建 payload 的 config 字段）。
+ * - 只发后端确实接受的 v1.ServerConfig 字段（DisallowUnknownFields 严格校验）。
+ * - bindPort 默认 7000；测试可覆盖避免端口冲突。
+ * - 不包含 frpmgr（那是请求体顶层的兄弟字段，由 api.ts 包装）。
  */
-export function minimalConfig(name: string) {
+export function minimalServerConfig(bindPort = 7000) {
   return {
-    serverAddr: '127.0.0.1',
-    serverPort: 65530,
-    loginFailExit: false,
+    bindPort,
     auth: { method: 'token', token: 'e2e-frps-token' },
     log: { level: 'info', maxDays: 1 },
-    frpmgr: { name },
   };
 }

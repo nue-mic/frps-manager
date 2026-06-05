@@ -1,5 +1,5 @@
 import type { Daemon } from '../fixtures/daemon';
-import { minimalConfig } from './toml';
+import { minimalServerConfig } from './toml';
 
 /**
  * 直接调 daemon REST API 的 helper. 用于在测试中快速 setup 状态
@@ -9,11 +9,18 @@ export function api(daemon: Daemon) {
   const h = { Authorization: `Bearer ${daemon.token}`, 'Content-Type': 'application/json' };
 
   return {
-    async createConfig(id: string) {
+    /**
+     * 创建一个 frps 配置。bindPort 默认 7000；e2e 多用例并存时显式传递避免端口冲突。
+     */
+    async createConfig(id: string, name = id, bindPort = 7000) {
       const r = await fetch(`${daemon.baseURL}/api/v1/configs`, {
         method: 'POST',
         headers: h,
-        body: JSON.stringify({ id, config: minimalConfig(id) }),
+        body: JSON.stringify({
+          id,
+          config: minimalServerConfig(bindPort),
+          frpmgr: { name, manualStart: true },
+        }),
       });
       if (!r.ok) throw new Error(`createConfig(${id}) failed: ${r.status} ${await r.text()}`);
     },
@@ -34,33 +41,35 @@ export function api(daemon: Daemon) {
       if (!r.ok) throw new Error(`stop(${id}) failed: ${r.status} ${await r.text()}`);
     },
 
-    async getLogs(id: string, lines = 100): Promise<string[]> {
-      const r = await fetch(
-        `${daemon.baseURL}/api/v1/configs/${id}/logs?lines=${lines}`,
-        { headers: h },
-      );
-      if (!r.ok) throw new Error(`getLogs(${id}) failed: ${r.status}`);
-      const body = (await r.json()) as { lines: string[] };
-      return body.lines ?? [];
+    async getStatus(id: string): Promise<{ state: string }> {
+      const r = await fetch(`${daemon.baseURL}/api/v1/configs/${id}/status`, { headers: h });
+      if (!r.ok) throw new Error(`getStatus(${id}) failed: ${r.status}`);
+      return r.json();
     },
 
-    async clearLogs(id: string) {
-      const r = await fetch(`${daemon.baseURL}/api/v1/configs/${id}/logs`, {
+    async deleteConfig(id: string) {
+      const r = await fetch(`${daemon.baseURL}/api/v1/configs/${id}`, {
         method: 'DELETE',
         headers: h,
       });
-      if (!r.ok) throw new Error(`clearLogs(${id}) failed: ${r.status}`);
+      if (!r.ok && r.status !== 404) {
+        throw new Error(`deleteConfig(${id}) failed: ${r.status}`);
+      }
     },
 
-    /** 轮询 GET /logs 直到 id 至少累积 N 行, 超时抛错. */
-    async waitForLogLines(id: string, atLeast: number, timeoutMs = 20000) {
+    /** 轮询 status 直到 state 匹配 want 或超时。 */
+    async waitForState(id: string, want: string, timeoutMs = 10000) {
       const deadline = Date.now() + timeoutMs;
       while (Date.now() < deadline) {
-        const lines = await this.getLogs(id, atLeast * 2);
-        if (lines.length >= atLeast) return lines;
-        await new Promise((res) => setTimeout(res, 500));
+        try {
+          const s = await this.getStatus(id);
+          if (s.state === want) return;
+        } catch {
+          // ignore
+        }
+        await new Promise((res) => setTimeout(res, 250));
       }
-      throw new Error(`waitForLogLines(${id}, ${atLeast}) timed out`);
+      throw new Error(`waitForState(${id}, ${want}) timed out`);
     },
   };
 }

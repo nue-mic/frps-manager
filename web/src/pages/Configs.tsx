@@ -174,13 +174,20 @@ const Configs: React.FC = () => {
     return () => clearInterval(timer);
   }, []);
 
-  // 事件驱动：实例启停时实时更新顶部运行徽标
-  useEventSubscription(['config.changed', 'instance.state'], (e) => {
+  // 事件驱动：实例启停/配置变更/删除时实时刷新列表
+  useEventSubscription(['config.changed', 'config.deleted', 'instance.state'], (e) => {
     if (e.type === 'instance.state' && e.config_id) {
       const st = (e.data as InstanceStateData | undefined)?.state;
       if (st) {
         setConfigs(prev => prev.map(c => (c.id === e.config_id ? { ...c, state: st as Snapshot['state'] } : c)));
       }
+    } else if (e.type === 'config.deleted' && e.config_id) {
+      // 删除事件：直接从列表移除，避免必须刷页面才反映
+      setConfigs(prev => prev.filter(c => c.id !== e.config_id));
+      setActiveConfigId(prev => (prev === e.config_id ? '' : prev));
+    } else if (e.type === 'config.changed') {
+      // 创建/更新事件：拉一次列表保持同步
+      fetchConfigs();
     }
   });
 

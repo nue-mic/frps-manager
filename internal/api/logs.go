@@ -67,8 +67,8 @@ func (h *LogsHandler) Query(w http.ResponseWriter, r *http.Request) {
 	})
 }
 
-// Files 列出合并日志 frpc.log 的所有轮转副本。在合并日志模式下，所有
-// instance 共享同一份历史；前端仍可调用此接口知道有哪些归档存在。
+// Files 列出本实例日志文件 <id>.log 的所有轮转副本。子进程模型下，每个 frps
+// worker 写各自的日志文件，本接口只列当前实例的归档。
 func (h *LogsHandler) Files(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	if !h.m.Exists(id) {
@@ -92,9 +92,9 @@ func (h *LogsHandler) Files(w http.ResponseWriter, r *http.Request) {
 }
 
 // Clear sets a "view since" timestamp for this instance instead of deleting
-// the combined log file. Subsequent GET /logs and WS /logs/tail will skip
-// lines older than this timestamp. The physical frpc.log is preserved so
-// operators can still grep historical data on disk.
+// the log file. Subsequent GET /logs and WS /logs/tail will skip lines older
+// than this timestamp. The physical <id>.log is preserved so operators can
+// still grep historical data on disk.
 func (h *LogsHandler) Clear(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	if !h.m.Exists(id) {
@@ -109,8 +109,8 @@ func (h *LogsHandler) Clear(w http.ResponseWriter, r *http.Request) {
 }
 
 // Tail upgrades to WebSocket and streams new lines belonging to the given
-// instance as they arrive. 物理上订阅合并日志 frpc.log，按 [inst=<id>] 前缀
-// 过滤后再推送。当 LogViewSince[id] > 0 时，时间戳早于该值的行也被丢弃。
+// instance as they arrive. 订阅本实例的 <id>.log 文件，新增行实时推送。
+// 当 LogViewSince[id] > 0 时，时间戳早于该值的行被丢弃。
 func (h *LogsHandler) Tail(w http.ResponseWriter, r *http.Request) {
 	id := pathID(r)
 	if !h.m.Exists(id) {
