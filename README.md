@@ -90,10 +90,10 @@ curl -fsSL https://gh-raw.966788.xyz/frp-mgr/install.sh | sh -s -- --uninstall
 
 ```sh
 # 交互安装
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/mia-clark/frp-manager-server/main/scripts/install.sh)"
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.sh)"
 
 # 全自动（带参数）
-curl -fsSL https://raw.githubusercontent.com/mia-clark/frp-manager-server/main/scripts/install.sh | sh -s -- -p 9000 -t 我的令牌 -y
+curl -fsSL https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.sh | sh -s -- -p 9000 -t 我的令牌 -y
 ```
 
 ### 📋 全部参数说明
@@ -159,7 +159,7 @@ curl -fsSL https://gh-raw.966788.xyz/frp-mgr/install.sh | sh -s -- --uninstall
 docker run -d --name frpsmgrd --network host \
   -e FRPSMGR_API_TOKEN="$(openssl rand -hex 32)" \
   -v $(pwd)/data:/data \
-  ghcr.io/mia-clark/frp-manager-server:latest
+  ghcr.io/mia-clark/frps-manager:latest
 ```
 
 镜像在每次推送到 `main` 和每个发布标签时自动构建（支持 amd64 + arm64）。
@@ -169,8 +169,8 @@ docker run -d --name frpsmgrd --network host \
 在任意空目录里：
 
 ```bash
-curl -O https://raw.githubusercontent.com/mia-clark/frp-manager-server/main/deploy/docker-compose.standalone.yml
-curl -O https://raw.githubusercontent.com/mia-clark/frp-manager-server/main/deploy/.env.example
+curl -O https://raw.githubusercontent.com/mia-clark/frps-manager/main/deploy/docker-compose.standalone.yml
+curl -O https://raw.githubusercontent.com/mia-clark/frps-manager/main/deploy/.env.example
 mv .env.example .env
 # 编辑 .env，至少把 FRPSMGR_API_TOKEN 设成一个真实令牌
 docker compose -f docker-compose.standalone.yml up -d

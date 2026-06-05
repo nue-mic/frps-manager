@@ -18,21 +18,17 @@ builds:
       - -s -w
       - -X github.com/mia-clark/frps-manager/pkg/version.Number={{.Version}}
       - -X github.com/mia-clark/frps-manager/pkg/version.BuildDate={{.Date}}
-    # 显式目标清单（对标 frp 官方全平台）。稀疏矩阵用 targets 比 goos×goarch+ignore 清晰。
-    # arm 用 goarm 后缀（v6/v7 两个变体）；mips/mipsle 走 softfloat（软路由多无 FPU），
-    # mips64/mips64le 走 hardfloat；amd64/arm64/386/riscv64 用各自默认微架构（无需后缀）。
+    # 显式目标清单。modernc.org/sqlite 依赖的 modernc.org/libc 不为 mips/mipsle/
+    # mips64/mips64le/loong64 提供 platform-specific 源文件 (undefined: newFile/long
+    # /ulong)，这些目标会编译失败，故移除。riscv64 由 modernc/libc v1.61+ 支持。
+    # arm 用 goarm 后缀 (v6/v7)；amd64/arm64/386/riscv64 用默认微架构。
     targets:
       - linux_amd64
       - linux_arm64
       - linux_arm_6
       - linux_arm_7
       - linux_386
-      - linux_mips_softfloat
-      - linux_mipsle_softfloat
-      - linux_mips64_hardfloat
-      - linux_mips64le_hardfloat
       - linux_riscv64
-      - linux_loong64
       - darwin_amd64
       - darwin_arm64
       - windows_amd64
@@ -40,8 +36,9 @@ builds:
       - windows_386
       - freebsd_amd64
       - freebsd_arm64
-      # android_arm64 暂不发布：frp 依赖 wlynxg/anet 在 Go 1.25 下 linkname net.zoneCache
-      # 失效（link error），无法构建；termux 等场景可直接使用 linux_arm64 静态二进制。
+      # 不发布：mips/mipsle/mips64/mips64le/loong64 — modernc.org/libc 缺源
+      # 不发布：android_arm64 — wlynxg/anet 在 Go 1.25 下 linkname net.zoneCache
+      #         失效；termux 用户可直接用 linux_arm64 静态二进制
 
 archives:
   - id: default
@@ -91,7 +88,7 @@ release:
   mode: replace
   github:
     owner: mia-clark
-    name: frp-manager-server
+    name: frps-manager
   header: |
     ## frpsmgrd {{ .Tag }}
 
@@ -99,5 +96,5 @@ release:
   footer: |
     ---
 
-    Container image: `ghcr.io/mia-clark/frp-manager-server:{{ .Version }}`
+    Container image: `ghcr.io/mia-clark/frps-manager:{{ .Version }}`
     See [`docs/README-server.md`](https://github.com/mia-clark/frps-manager/blob/main/docs/README-server.md) for deployment.

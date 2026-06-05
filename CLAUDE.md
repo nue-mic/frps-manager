@@ -1,4 +1,4 @@
-# CLAUDE.md — frp-manager-server 项目指南
+# CLAUDE.md — frps-manager 项目指南
 
 > 本文件为本仓库的项目级指令，供 Claude Code 在本项目中工作时遵循。
 > 全局通用规范（语言、Windows Shell、Git、各专家 Skill）见用户级 `~/.claude/CLAUDE.md`，此处**不重复**，只记录本项目特有、且最容易踩坑的信息。
