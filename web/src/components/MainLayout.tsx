@@ -14,6 +14,7 @@ import {
   BookOutlined,
   LineChartOutlined,
   BellOutlined,
+  InfoCircleOutlined,
 } from '@ant-design/icons';
 import type { MenuProps } from 'antd';
 import { useNavigate, useLocation, Outlet } from 'react-router-dom';
@@ -116,6 +117,12 @@ const MainLayout: React.FC = () => {
         type: 'group',
         label: '系统',
         children: [{ key: '/settings', icon: <SettingOutlined />, label: '设置' }],
+      },
+      {
+        key: 'g-about',
+        type: 'group',
+        label: '帮助',
+        children: [{ key: '/about', icon: <InfoCircleOutlined />, label: '关于 & 手册' }],
       },
     ],
     []

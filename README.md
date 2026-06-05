@@ -35,32 +35,32 @@
 **最简单：交互安装**（回车逐步选端口、令牌）
 
 ```sh
-curl -fsSL https://gh-raw.966788.xyz/frp-mgr/install.sh | sh
+curl -fsSL https://gh-raw.966788.xyz/frps-mgr/install.sh | sh
 ```
 
 **全自动安装**（一行搞定）：
 
 ```sh
 # 默认端口 8080 + 自动生成强随机令牌
-curl -fsSL https://gh-raw.966788.xyz/frp-mgr/install.sh | sh -s -- -y
+curl -fsSL https://gh-raw.966788.xyz/frps-mgr/install.sh | sh -s -- -y
 
 # 指定端口 9000 + 指定令牌
-curl -fsSL https://gh-raw.966788.xyz/frp-mgr/install.sh | sh -s -- -p 9000 -t 我的令牌 -y
+curl -fsSL https://gh-raw.966788.xyz/frps-mgr/install.sh | sh -s -- -p 9000 -t 我的令牌 -y
 
 # 随机端口 + 自动生成令牌
-curl -fsSL https://gh-raw.966788.xyz/frp-mgr/install.sh | sh -s -- --port random -y
+curl -fsSL https://gh-raw.966788.xyz/frps-mgr/install.sh | sh -s -- --port random -y
 ```
 
 **全自动更新**（保留端口/令牌/数据，只换程序并重启）：
 
 ```sh
-curl -fsSL https://gh-raw.966788.xyz/frp-mgr/install.sh | sh -s -- --update --force
+curl -fsSL https://gh-raw.966788.xyz/frps-mgr/install.sh | sh -s -- --update --force
 ```
 
 **一行卸载**：
 
 ```sh
-curl -fsSL https://gh-raw.966788.xyz/frp-mgr/install.sh | sh -s -- --uninstall
+curl -fsSL https://gh-raw.966788.xyz/frps-mgr/install.sh | sh -s -- --uninstall
 ```
 
 > 没装 `curl`？把 `curl -fsSL <地址>` 换成 `wget -qO- <地址>` 即可。
@@ -69,16 +69,16 @@ curl -fsSL https://gh-raw.966788.xyz/frp-mgr/install.sh | sh -s -- --uninstall
 
 ### 🌐 镜像域名（主用 + 备用）
 
-所有路径都一样：`/frp-mgr/install.sh`（即仓库的 `scripts/install.sh`）。
+所有路径都一样：`/frps-mgr/install.sh`（即仓库的 `scripts/install.sh`）。
 
 | 类型 | 域名 |
 |---|---|
-| **主用** | `https://gh-raw.966788.xyz/frp-mgr/install.sh` |
-| 备用 1 | `https://gh-raw.s03.qzz.io/frp-mgr/install.sh` |
-| 备用 2 | `https://gh-raw.s04.qzz.io/frp-mgr/install.sh` |
-| 备用 3 | `https://gh-raw.s05.qzz.io/frp-mgr/install.sh` |
-| 备用 4 | `https://gh-raw.s06.qzz.io/frp-mgr/install.sh` |
-| 备用 5 | `https://gh-raw.s07.qzz.io/frp-mgr/install.sh` |
+| **主用** | `https://gh-raw.966788.xyz/frps-mgr/install.sh` |
+| 备用 1 | `https://gh-raw.s03.qzz.io/frps-mgr/install.sh` |
+| 备用 2 | `https://gh-raw.s04.qzz.io/frps-mgr/install.sh` |
+| 备用 3 | `https://gh-raw.s05.qzz.io/frps-mgr/install.sh` |
+| 备用 4 | `https://gh-raw.s06.qzz.io/frps-mgr/install.sh` |
+| 备用 5 | `https://gh-raw.s07.qzz.io/frps-mgr/install.sh` |
 
 ### 🌍 海外服务器（能直连 GitHub）
 
@@ -110,7 +110,7 @@ curl -fsSL https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts
 丢进 `crontab`，例如每天凌晨 4 点：
 
 ```sh
-0 4 * * * curl -fsSL https://gh-raw.966788.xyz/frp-mgr/install.sh | sh -s -- --update >> /var/log/frpsmgrd-update.log 2>&1
+0 4 * * * curl -fsSL https://gh-raw.966788.xyz/frps-mgr/install.sh | sh -s -- --update >> /var/log/frpsmgrd-update.log 2>&1
 ```
 
 ### 安装脚本支持的系统

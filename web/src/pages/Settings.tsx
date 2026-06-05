@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useState } from 'react';
 import {
   Card,
   Space,
@@ -18,24 +18,12 @@ import {
 import {
   UserOutlined,
   SettingOutlined,
-  InfoCircleOutlined,
-  GithubOutlined,
-  SafetyCertificateOutlined,
   KeyOutlined,
 } from '@ant-design/icons';
-import client, { clearAPIToken, getAPIToken } from '../api/client';
+import { clearAPIToken, getAPIToken } from '../api/client';
 import { useTheme } from '../theme/ThemeContext';
 
-const { Title, Text, Paragraph } = Typography;
-
-interface VersionResp {
-  daemon?: string;
-  version?: string;
-  frp?: string;
-  build_date?: string;
-}
-
-const APP_REPO = 'https://github.com/mia-clark/frps-manager';
+const { Title, Text } = Typography;
 
 const Settings: React.FC = () => {
   const { token } = antdTheme.useToken();
@@ -45,17 +33,12 @@ const Settings: React.FC = () => {
   const [autoCollapse, setAutoCollapse] = useState<boolean>(
     () => localStorage.getItem('frpsmgr_sidebar_collapse') === '1'
   );
-  const [version, setVersion] = useState<VersionResp>({});
   const tokenMasked = (() => {
     const t = getAPIToken();
     if (!t) return '未保存';
     if (t.length <= 8) return '****';
     return `${t.slice(0, 4)}…${t.slice(-4)}`;
   })();
-
-  useEffect(() => {
-    client.get<VersionResp>('/api/v1/version').then((r) => setVersion(r.data)).catch(() => undefined);
-  }, []);
 
   const onChangeToken = () => {
     modal.confirm({
@@ -153,51 +136,10 @@ const Settings: React.FC = () => {
           </Card>
         </Col>
 
-        <Col xs={24}>
-          <Card title={<Space><InfoCircleOutlined /> 关于</Space>} styles={{ body: { padding: 18 } }} style={{ borderRadius: 10 }}>
-            <Descriptions column={{ xs: 1, sm: 2, lg: 3 }} size="small" labelStyle={{ width: 110 }}>
-              <Descriptions.Item label="应用名称">
-                <Space>
-                  <SafetyCertificateOutlined style={{ color: token.colorPrimary }} />
-                  FRPS Manager
-                </Space>
-              </Descriptions.Item>
-              <Descriptions.Item label="Daemon 版本">
-                <Tag>{version.daemon || version.version || '—'}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="嵌入 frp">
-                <Tag color="cyan">{version.frp || '—'}</Tag>
-              </Descriptions.Item>
-              <Descriptions.Item label="构建时间">{version.build_date || '—'}</Descriptions.Item>
-              <Descriptions.Item label="前端栈">
-                React 19 · Ant Design 6 · Vite
-              </Descriptions.Item>
-              <Descriptions.Item label="实时通道">WebSocket (/api/v1/events)</Descriptions.Item>
-            </Descriptions>
-            <Divider style={{ margin: '16px 0' }} />
-            <Space wrap>
-              <Button icon={<GithubOutlined />} href={APP_REPO} target="_blank">
-                源代码 / Issues
-              </Button>
-              <Button
-                onClick={() => {
-                  const a = document.createElement('a');
-                  a.href = '/api/v1/version';
-                  a.target = '_blank';
-                  a.click();
-                }}
-              >
-                查看版本接口
-              </Button>
-            </Space>
-            <Paragraph type="secondary" style={{ marginTop: 16, marginBottom: 0, fontSize: 12 }}>
-              本控制台是 frpsmgr 1.26.1 Windows 桌面版功能向 Web 端的完整迁移与扩展，自带多实例管理、可视化规则编辑、TOML 直编、事件流和宿主机监控。
-            </Paragraph>
-          </Card>
-        </Col>
       </Row>
     </Space>
   );
 };
 
 export default Settings;
+
