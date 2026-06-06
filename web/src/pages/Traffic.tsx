@@ -28,6 +28,7 @@ import {
 
 import client from '../api/client';
 import type { Snapshot, TrafficSeries, TrafficPoint } from '../api/types';
+import { fmtHourMinute } from '../utils/time';
 
 const { Title, Text } = Typography;
 
@@ -60,12 +61,7 @@ interface ChartRow {
   conns: number;
 }
 
-const fmtTime = (unixSec: number): string => {
-  const d = new Date(unixSec * 1000);
-  const hh = String(d.getHours()).padStart(2, '0');
-  const mm = String(d.getMinutes()).padStart(2, '0');
-  return `${hh}:${mm}`;
-};
+const fmtTime = (unixSec: number): string => fmtHourMinute(unixSec * 1000);
 
 const Traffic: React.FC = () => {
   const { token } = antdTheme.useToken();

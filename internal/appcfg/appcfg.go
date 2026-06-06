@@ -19,7 +19,12 @@ type Config struct {
 	MetaFile     string
 	LogLevel     string
 	DocsEnabled  bool
-	ShutdownWait time.Duration
+	// SelfUpdateEnabled gates the web-triggered self-update endpoint
+	// (POST /api/v1/system/update). It maps to FRPSMGR_SELF_UPDATE_ENABLED
+	// and defaults to true. Operators running immutable deployments can set
+	// it to false to disable in-place upgrades from the UI.
+	SelfUpdateEnabled bool
+	ShutdownWait      time.Duration
 }
 
 // Load reads configuration from environment variables. Required fields
@@ -32,7 +37,9 @@ func Load() (*Config, error) {
 		DataDir:      getEnv("FRPSMGR_DATA_DIR", "/data"),
 		LogLevel:     strings.ToLower(getEnv("FRPSMGR_LOG_LEVEL", "info")),
 		DocsEnabled:  parseBool(getEnv("FRPSMGR_DOCS_ENABLED", "true"), true),
-		ShutdownWait: 10 * time.Second,
+
+		SelfUpdateEnabled: parseBool(getEnv("FRPSMGR_SELF_UPDATE_ENABLED", "true"), true),
+		ShutdownWait:      10 * time.Second,
 	}
 	cfg.ProfilesDir = cfg.DataDir + "/profiles"
 	cfg.LogsDir = cfg.DataDir + "/logs"

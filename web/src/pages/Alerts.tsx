@@ -30,6 +30,7 @@ import {
 
 import client from '../api/client';
 import type { Snapshot, AlertRule, AlertEvent } from '../api/types';
+import { fmtDateTime } from '../utils/time';
 
 const { Title, Text } = Typography;
 
@@ -50,7 +51,7 @@ const metricLabel = (m: string) =>
 
 const fmtUnixSec = (s?: number): string => {
   if (!s) return '—';
-  return new Date(s * 1000).toLocaleString();
+  return fmtDateTime(s * 1000);
 };
 
 // 表单字段严格对应 AlertRule（snake_case：inst_id / for_seconds）。

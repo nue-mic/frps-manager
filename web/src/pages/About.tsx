@@ -30,6 +30,8 @@ import {
   ThunderboltOutlined,
 } from '@ant-design/icons';
 import client from '../api/client';
+import UpdateCard from '../components/UpdateCard';
+import { fmtDateTime } from '../utils/time';
 
 const { Title, Text, Paragraph } = Typography;
 
@@ -167,12 +169,15 @@ const About: React.FC = () => {
                 React 19 · Ant Design 6
               </Tag>
               <Tag color="default" style={{ background: 'rgba(255,255,255,0.18)', border: '1px solid rgba(255,255,255,0.3)', color: '#fff', borderRadius: 14, padding: '2px 12px' }}>
-                构建 {version.build_date || '—'}
+                构建 {fmtDateTime(version.build_date)}
               </Tag>
             </Space>
           </div>
         </div>
       </Card>
+
+      {/* 版本升级 —— 检查最新版 / 更新日志 / 一键更新 */}
+      <UpdateCard />
 
       {/* 5 Tab 主体 */}
       <Card
@@ -316,7 +321,7 @@ function renderInfoTab(opts: {
         <Descriptions.Item label="嵌入 frp">
           <Tag color="cyan">{version.frp || '—'}</Tag>
         </Descriptions.Item>
-        <Descriptions.Item label="构建时间">{version.build_date || '—'}</Descriptions.Item>
+        <Descriptions.Item label="构建时间">{fmtDateTime(version.build_date)}</Descriptions.Item>
         <Descriptions.Item label="前端栈">React 19 · Ant Design 6 · Vite</Descriptions.Item>
         <Descriptions.Item label="实时通道">WebSocket (/api/v1/events)</Descriptions.Item>
       </Descriptions>
@@ -639,6 +644,7 @@ function renderEnvTab(opts: { token: TokenLike }) {
     { key: 'FRPSMGR_CORS_ORIGINS',  required: '',  default: '*',         desc: '逗号分隔的 CORS 白名单。前后端分离调试时填具体 origin。' },
     { key: 'FRPSMGR_LOG_LEVEL',     required: '',  default: 'info',      desc: 'trace / debug / info / warn / error。' },
     { key: 'FRPSMGR_DOCS_ENABLED',  required: '',  default: 'true',      desc: '是否开放 /api/docs Scalar 在线文档（生产可关闭）。' },
+    { key: 'FRPSMGR_SELF_UPDATE_ENABLED', required: '', default: 'true', desc: '是否允许在「关于」页一键自更新并重启（Docker/手动运行不支持，自动置灰）。' },
   ];
 
   return (

@@ -1,14 +1,14 @@
 #!/bin/sh
 # =============================================================================
-# frpsmgrd 一键安装脚本 (frp-manager-server)
+# frpsmgrd 一键安装脚本 (frps-manager)
 #
 #   支持: macOS / 各类 Linux (systemd / OpenRC / 通用回退)
 #   下载: 自动选择 curl 或 wget
 #   功能: 自动识别系统架构 -> 下载对应二进制 -> 安装 -> 注册系统服务 -> 开机自启
 #
 # 一行安装 (推荐, 支持交互):
-#   sh -c "$(curl -fsSL https://raw.githubusercontent.com/mia-clark/frp-manager-server/main/scripts/install.sh)"
-#   sh -c "$(wget -qO- https://raw.githubusercontent.com/mia-clark/frp-manager-server/main/scripts/install.sh)"
+#   sh -c "$(curl -fsSL https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.sh)"
+#   sh -c "$(wget -qO- https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.sh)"
 #
 # 非交互 / 自定义示例:
 #   sh install.sh --yes --port 9000 --token mysecret
@@ -24,7 +24,7 @@ set -eu
 # ----------------------------------------------------------------------------
 # 常量配置
 # ----------------------------------------------------------------------------
-REPO="mia-clark/frp-manager-server"
+REPO="mia-clark/frps-manager"
 BIN_NAME="frpsmgrd"
 INSTALL_DIR="/usr/local/bin"
 SERVICE_NAME="frpsmgrd"
@@ -472,6 +472,8 @@ FRPSMGR_DATA_DIR=${DATA_DIR}
 FRPSMGR_LOG_LEVEL=info
 FRPSMGR_CORS_ORIGINS=*
 FRPSMGR_DOCS_ENABLED=true
+# 是否允许在 Web 后台「关于」页一键自更新并重启 (true/false)
+FRPSMGR_SELF_UPDATE_ENABLED=true
 EOF
     priv install -m 0600 "$_tmp_env" "$ENV_FILE"
 }
@@ -584,6 +586,8 @@ setup_launchd() {
         <string>${DATA_DIR}</string>
         <key>FRPSMGR_LOG_LEVEL</key>
         <string>info</string>
+        <key>FRPSMGR_SELF_UPDATE_ENABLED</key>
+        <string>true</string>
     </dict>
     <key>RunAtLoad</key>
     <true/>
@@ -773,6 +777,66 @@ cli_panel() {
     printf "    ${C_BOLD}%-13s${C_RST} # %s\n" "fms help"      "查看全部命令"
     printf "%b\n" "────────────────────────────────────────────"
 }
+# ----------------------------------------------------------------------------
+# 外网 IP 探测 (与 install.sh 同款逻辑, 此处独立内嵌, 让 fms 自包含)
+# ----------------------------------------------------------------------------
+PUBIP_V4_URLS="https://4.ipw.cn https://api.ip.sb/ip https://api.ipify.org https://ifconfig.me/ip https://ipv4.icanhazip.com http://members.3322.org/dyndns/getip"
+PUBIP_V6_URLS="https://6.ipw.cn https://ipv6.icanhazip.com"
+
+detect_public_ips() {
+    _out="$(mktemp 2>/dev/null || echo "/tmp/fms_pubips.$$")"
+    : > "$_out"
+    _pids=""
+    for _u in $PUBIP_V4_URLS; do
+        (
+            if command -v curl >/dev/null 2>&1; then
+                _r="$(curl -fsS4 --max-time 2 "$_u" 2>/dev/null | tr -d ' \r\n\t')"
+            else
+                _r="$(wget -qO- --timeout=2 "$_u" 2>/dev/null | tr -d ' \r\n\t')"
+            fi
+            _r="$(printf "%s" "$_r" | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n1)"
+            [ -n "$_r" ] && printf "%s\n" "$_r" >> "$_out"
+        ) &
+        _pids="$_pids $!"
+    done
+    for _u in $PUBIP_V6_URLS; do
+        (
+            if command -v curl >/dev/null 2>&1; then
+                _r="$(curl -fsS6 --max-time 2 "$_u" 2>/dev/null | tr -d ' \r\n\t')"
+            else
+                _r="$(wget -qO- --timeout=2 "$_u" 2>/dev/null | tr -d ' \r\n\t')"
+            fi
+            case "$_r" in *:*:*) printf "%s\n" "$_r" >> "$_out" ;; esac
+        ) &
+        _pids="$_pids $!"
+    done
+    # shellcheck disable=SC2086
+    wait $_pids 2>/dev/null
+    awk 'NF && !seen[$0]++' "$_out" | tr '\n' ' '
+    rm -f "$_out"
+}
+
+PUBLIC_IPS_CACHE=""; PUBLIC_IPS_CACHED=0
+public_ips() {
+    if [ "$PUBLIC_IPS_CACHED" = "0" ]; then
+        PUBLIC_IPS_CACHE="$(detect_public_ips)"; PUBLIC_IPS_CACHED=1
+    fi
+    printf "%s" "$PUBLIC_IPS_CACHE"
+}
+
+print_url_line() {
+    _label="$1"; _p="$2"; _path="${3:-}"
+    printf "  %-8s : ${C_BOLD}http://127.0.0.1:%s%s${C_RST}\n" "$_label" "$_p" "$_path"
+    _pubs="$(public_ips)"
+    [ -n "$_pubs" ] || return 0
+    for _ip in $_pubs; do
+        case "$_ip" in
+            *:*) printf "             ${C_BOLD}http://[%s]:%s%s${C_RST}  ${C_BLU}(外网)${C_RST}\n" "$_ip" "$_p" "$_path" ;;
+            *)   printf "             ${C_BOLD}http://%s:%s%s${C_RST}  ${C_BLU}(外网)${C_RST}\n"   "$_ip" "$_p" "$_path" ;;
+        esac
+    done
+}
+
 cmd_info() {
     _addr="$(env_get FRPSMGR_HTTP_ADDR)"; _port="${_addr#:}"; [ -n "$_port" ] || _port="8080"
     _token="$(env_get FRPSMGR_API_TOKEN)"
@@ -795,8 +859,9 @@ cmd_info() {
     printf "%b\n" "────────────────────────────────────────────"
     printf "  版本     : %s\n" "$_ver"
     printf "  服务状态 : %s\n" "$_state"
-    printf "  访问地址 : ${C_BOLD}http://127.0.0.1:%s${C_RST}\n" "$_port"
-    printf "  API 文档 : http://127.0.0.1:%s/api/docs\n" "$_port"
+    print_url_line "访问地址" "$_port"
+    print_url_line "API 文档" "$_port" "/api/docs"
+    [ -n "$(public_ips)" ] && printf "  %b\n" "${C_YLW}注: 外网地址能否实际访问取决于防火墙/安全组/NAT 是否放行该端口${C_RST}"
     printf "  API 令牌 : ${C_BOLD}%s${C_RST}\n" "${_token:-(未读取到)}"
     printf "  监听地址 : %s\n" "${_addr:-:8080}"
     printf "  日志级别 : %s\n" "$_loglv"
@@ -1005,12 +1070,79 @@ print_cli_hint() {
     printf "%b\n" "────────────────────────────────────────────"
 }
 
+# ----------------------------------------------------------------------------
+# 外网 IP 探测
+#   - 多源混合 (国内+境外, 每个超时 ~1.5s) 并发查询, 去重
+#   - IPv4 + IPv6 都查, 都失败时静默返回空 (不阻塞主流程)
+#   - 输出空格分隔的 IP 列表
+# ----------------------------------------------------------------------------
+PUBIP_V4_URLS="https://4.ipw.cn https://api.ip.sb/ip https://api.ipify.org https://ifconfig.me/ip https://ipv4.icanhazip.com http://members.3322.org/dyndns/getip"
+PUBIP_V6_URLS="https://6.ipw.cn https://ipv6.icanhazip.com"
+
+detect_public_ips() {
+    _tmpdir="${TMP_DIR:-/tmp}"
+    _out="${_tmpdir}/pubips.$$"
+    : > "$_out"
+    _pids=""
+    for _u in $PUBIP_V4_URLS; do
+        (
+            if command -v curl >/dev/null 2>&1; then
+                _r="$(curl -fsS4 --max-time 2 "$_u" 2>/dev/null | tr -d ' \r\n\t')"
+            else
+                _r="$(wget -qO- --timeout=2 "$_u" 2>/dev/null | tr -d ' \r\n\t')"
+            fi
+            _r="$(printf "%s" "$_r" | grep -Eo '([0-9]{1,3}\.){3}[0-9]{1,3}' | head -n1)"
+            [ -n "$_r" ] && printf "%s\n" "$_r" >> "$_out"
+        ) &
+        _pids="$_pids $!"
+    done
+    for _u in $PUBIP_V6_URLS; do
+        (
+            if command -v curl >/dev/null 2>&1; then
+                _r="$(curl -fsS6 --max-time 2 "$_u" 2>/dev/null | tr -d ' \r\n\t')"
+            else
+                _r="$(wget -qO- --timeout=2 "$_u" 2>/dev/null | tr -d ' \r\n\t')"
+            fi
+            case "$_r" in *:*:*) printf "%s\n" "$_r" >> "$_out" ;; esac
+        ) &
+        _pids="$_pids $!"
+    done
+    # shellcheck disable=SC2086
+    wait $_pids 2>/dev/null
+    awk 'NF && !seen[$0]++' "$_out" | tr '\n' ' '
+    rm -f "$_out"
+}
+
+PUBLIC_IPS_CACHE=""
+PUBLIC_IPS_CACHED=0
+public_ips() {
+    if [ "$PUBLIC_IPS_CACHED" = "0" ]; then
+        PUBLIC_IPS_CACHE="$(detect_public_ips)"
+        PUBLIC_IPS_CACHED=1
+    fi
+    printf "%s" "$PUBLIC_IPS_CACHE"
+}
+
+# 打印一行 "标签 : http://本机/外网... [path]"
+print_url_line() {
+    _label="$1"; _p="$2"; _path="${3:-}"
+    printf "  %-8s : ${C_BOLD}http://127.0.0.1:%s%s${C_RST}\n" "$_label" "$_p" "$_path"
+    _pubs="$(public_ips)"
+    [ -n "$_pubs" ] || return 0
+    for _ip in $_pubs; do
+        case "$_ip" in
+            *:*) printf "             ${C_BOLD}http://[%s]:%s%s${C_RST}  ${C_BLU}(外网)${C_RST}\n" "$_ip" "$_p" "$_path" ;;
+            *)   printf "             ${C_BOLD}http://%s:%s%s${C_RST}  ${C_BLU}(外网)${C_RST}\n"   "$_ip" "$_p" "$_path" ;;
+        esac
+    done
+}
+
 print_summary() {
-    _ip="127.0.0.1"
     printf "\n%b\n" "${C_GRN}${C_BOLD}✓ 安装完成!${C_RST}"
     printf "%b\n" "────────────────────────────────────────────"
-    printf "  访问地址 : ${C_BOLD}http://%s:%s${C_RST}\n" "$_ip" "$PORT"
-    printf "  API 文档 : ${C_BOLD}http://%s:%s/api/docs${C_RST}\n" "$_ip" "$PORT"
+    print_url_line "访问地址" "$PORT"
+    print_url_line "API 文档" "$PORT" "/api/docs"
+    [ -n "$(public_ips)" ] && printf "  %b\n" "${C_YLW}注: 外网地址能否实际访问取决于防火墙/安全组/NAT 是否放行该端口${C_RST}"
     printf "  API 令牌 : ${C_BOLD}%s${C_RST}\n" "$TOKEN"
     printf "  配置文件 : %s\n" "$ENV_FILE"
     printf "  数据目录 : %s\n" "$DATA_DIR"
@@ -1057,7 +1189,11 @@ do_update() {
     fi
 
     printf "\n%b\n" "${C_GRN}${C_BOLD}✓ 更新完成!${C_RST} 版本: ${_target}"
-    [ -n "$PORT" ] && printf "  访问地址 : http://127.0.0.1:%s\n" "$PORT"
+    if [ -n "$PORT" ]; then
+        PUBLIC_IPS_CACHED=0
+        print_url_line "访问地址" "$PORT"
+        [ -n "$(public_ips)" ] && printf "  %b\n" "${C_YLW}注: 外网地址能否实际访问取决于防火墙/安全组/NAT 是否放行该端口${C_RST}"
+    fi
     info "现有端口、API 令牌与数据均未改动。"
     print_cli_hint
 }

@@ -29,6 +29,7 @@ import client from '../api/client';
 import { useEventStream, useEventSubscription } from '../events/EventStreamContext';
 import type { BusEvent, EventType } from '../events/types';
 import type { Snapshot } from '../api/types';
+import { fmtTime, fmtHourMinute } from '../utils/time';
 
 const { Title, Text } = Typography;
 
@@ -346,11 +347,11 @@ const Dashboard: React.FC = () => {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={token.colorBorderSecondary} />
-                    <XAxis dataKey="t" tickFormatter={(t) => new Date(t).toLocaleTimeString().slice(0, 5)} stroke={token.colorTextSecondary} fontSize={11} />
+                    <XAxis dataKey="t" tickFormatter={(t) => fmtHourMinute(Number(t))} stroke={token.colorTextSecondary} fontSize={11} />
                     <YAxis domain={[0, 100]} stroke={token.colorTextSecondary} fontSize={11} />
                     <Tooltip
                       contentStyle={{ background: token.colorBgElevated, border: 'none', borderRadius: 8 }}
-                      labelFormatter={(t) => new Date(Number(t)).toLocaleTimeString()}
+                      labelFormatter={(t) => fmtTime(Number(t))}
                       formatter={(v, name) => [`${Number(v ?? 0).toFixed(1)}%`, name === 'cpu' ? 'CPU' : '内存']}
                     />
                     <Area type="monotone" dataKey="cpu" stroke={token.colorPrimary} fill="url(#dashCpu)" />
@@ -383,7 +384,7 @@ const Dashboard: React.FC = () => {
                         {TYPE_BADGE[e.type]?.label ?? e.type}
                       </Tag>
                       <Text type="secondary" style={{ fontSize: 11 }}>
-                        {new Date(e.ts).toLocaleTimeString()}
+                        {fmtTime(e.ts)}
                       </Text>
                     </Space>
                     <Text style={{ fontSize: 12, fontFamily: 'ui-monospace, monospace' }} ellipsis>

@@ -9,6 +9,7 @@ import {
   InboxOutlined,
 } from '@ant-design/icons';
 import client, { getAPIToken } from '../api/client';
+import { fmtDate } from '../utils/time';
 
 const { Title, Text, Paragraph } = Typography;
 const { Dragger } = Upload;
@@ -30,7 +31,7 @@ const ImportExport: React.FC = () => {
       const downloadUrl = window.URL.createObjectURL(blob);
       const link = document.createElement('a');
       link.href = downloadUrl;
-      link.download = `frp-configs-backup-${new Date().toISOString().split('T')[0]}.zip`;
+      link.download = `frp-configs-backup-${fmtDate(new Date())}.zip`;
       document.body.appendChild(link);
       link.click();
       document.body.removeChild(link);

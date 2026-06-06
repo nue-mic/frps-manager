@@ -99,6 +99,43 @@ paths:
                   frp:        { type: string, example: "0.69.1" }
                   build_date: { type: string, example: "unknown" }
         '401': { $ref: '#/components/responses/Unauthorized' }
+  /api/v1/version/check:
+    get:
+      tags: [system]
+      summary: 检查最新 GitHub release 并与当前版本对比
+      parameters:
+        - in: query
+          name: force
+          required: false
+          schema: { type: integer, enum: [1] }
+          description: 传 1 绕过后端 ~1h 缓存。
+      responses:
+        '200':
+          description: >
+            版本对比结果。always 返回 current/frp/deployment_mode/
+            self_update_enabled/has_update/can_self_update/reason；
+            latest/changelog/html_url/published_at 仅查询成功时；
+            check_error 仅失败时。
+  /api/v1/system/update:
+    post:
+      tags: [system]
+      summary: 启动一键自更新并重启守护进程
+      description: >
+        起一个脱离进程下载最新 release、替换二进制并重启服务，立即返回 202。
+        客户端轮询 /api/v1/version 直到 daemon 版本变化即完成。受
+        FRPSMGR_SELF_UPDATE_ENABLED 控制，仅服务部署可用（Docker/手动运行拒绝）。
+        ?force=1 可在已是最新时强制重装。
+      parameters:
+        - in: query
+          name: force
+          required: false
+          schema: { type: integer, enum: [1] }
+      responses:
+        '202': { description: 更新已开始；服务即将重启 }
+        '403': { description: 自更新已被禁用 }
+        '400': { description: 当前部署不支持自更新 }
+        '409': { description: 已是最新版本（未带 force=1）}
+        '502': { description: 无法获取最新版本 }
   /api/docs:
     get:
       tags: [docs]

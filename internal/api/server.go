@@ -53,11 +53,14 @@ func NewRouter(d Deps) http.Handler {
 	logs := NewLogsHandler(d.Manager, d.Cfg.LogsDir, d.Logger, d.Cfg.CORSOrigins)
 	imex := NewImportExportHandler(d.Manager, d.Logger)
 	mh := NewMetricsHandler(d.Metrics)
+	upd := NewUpdateHandler(d.Cfg.DataDir, d.Cfg.SelfUpdateEnabled, d.Logger)
 
 	// Authenticated subtree.
 	r.Group(func(r chi.Router) {
 		r.Use(middleware.Bearer(d.Cfg.APIToken))
 		r.Get("/api/v1/version", sys.Version)
+		r.Get("/api/v1/version/check", upd.Check)
+		r.Post("/api/v1/system/update", upd.Update)
 
 		r.Get("/api/v1/configs", configs.List)
 		r.Post("/api/v1/configs", configs.Create)

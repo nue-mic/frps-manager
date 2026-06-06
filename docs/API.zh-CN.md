@@ -93,7 +93,55 @@
 
 `daemon`、`build_date` 由构建期 `-ldflags` 注入；`frp` 取自 `github.com/fatedier/frp/pkg/util/version.Full()`。
 
-### 1.3 `/api/docs/*` — 内嵌 API 文档（默认开启，无需鉴权）
+### 1.3 `GET /api/v1/version/check` — 检查最新版本
+
+查询 GitHub 最新 release 并与当前版本对比。后端结果缓存约 1 小时；传 `?force=1` 绕过缓存。
+字段为 **snake_case**（与 `/api/v1/system/*` 一致）。
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `current` | string | 当前 daemon 版本 |
+| `frp` | string | 内嵌 frp 版本 |
+| `deployment_mode` | string | `docker` / `systemd` / `openrc` / `launchd` / `windows-service` / `manual` |
+| `self_update_enabled` | bool | 是否允许 Web 端自更新（`FRPSMGR_SELF_UPDATE_ENABLED`） |
+| `has_update` | bool | 是否有更新版本 |
+| `can_self_update` | bool | 该部署是否支持一键更新（Docker / 手动运行为 false） |
+| `reason` | string | 不可更新或被禁用时的说明，正常为空串 |
+| `latest` | string? | 最新版本 tag（仅查询成功时返回） |
+| `changelog` | string? | release 正文（Markdown，仅成功时返回） |
+| `html_url` | string? | release 页面链接（仅成功时返回） |
+| `published_at` | string? | 发布时间（仅成功时返回） |
+| `check_error` | string? | 查询失败时的错误信息（仅失败时返回） |
+
+```json
+{
+  "current": "1.2.23", "frp": "0.69.1", "deployment_mode": "systemd",
+  "self_update_enabled": true, "has_update": true, "can_self_update": true,
+  "reason": "", "latest": "v1.2.32", "changelog": "## 修复\n- ...",
+  "html_url": "https://github.com/mia-clark/frps-manager/releases/tag/v1.2.32",
+  "published_at": "2026-06-06T00:00:00Z"
+}
+```
+
+### 1.4 `POST /api/v1/system/update` — 一键更新并重启
+
+启动一个**脱离进程**下载最新版、替换二进制并重启服务，立即返回 `202`。客户端随后轮询
+`/api/v1/version` 直到 `daemon` 变化即视为完成。受 `FRPSMGR_SELF_UPDATE_ENABLED` 开关控制，
+且仅对服务化部署可用（Docker / 手动运行会被拒绝）。传 `?force=1` 可在已是最新时强制重装。
+
+| 状态码 | 含义 |
+|---|---|
+| `202` | 更新已开始，服务即将重启；body 含 `{status, from, to, message}` |
+| `403` | 管理员已禁用 Web 端自更新 |
+| `400` | 当前部署方式不支持一键更新（Docker / 手动） |
+| `409` | 已是最新版本（未带 `force=1`） |
+| `502` | 无法获取最新版本（网络受限等） |
+
+```json
+{ "status": "updating", "from": "1.2.23", "to": "v1.2.32", "message": "更新已开始，服务即将重启，请稍候…" }
+```
+
+### 1.5 `/api/docs/*` — 内嵌 API 文档（默认开启，无需鉴权）
 
 | 路径 | 说明 |
 |---|---|

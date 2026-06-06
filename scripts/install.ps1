@@ -1,13 +1,13 @@
 ﻿#Requires -Version 5.1
 # =============================================================================
-# frpsmgrd 一键安装脚本 (frp-manager-server) — Windows / PowerShell 版
+# frpsmgrd 一键安装脚本 (frps-manager) — Windows / PowerShell 版
 #
 #   支持: Windows 10/11 / Windows Server (amd64 / arm64)
 #   服务: 通过 NSSM 将 frpsmgrd.exe 包装为真正的 Windows 服务 (可在 services.msc 管理)
 #   功能: 自动识别架构 -> 下载二进制 -> 安装 -> 注册服务 -> 开机自启 -> 健康检查
 #
 # 一行安装 (推荐, 管理员 PowerShell 中执行):
-#   irm https://raw.githubusercontent.com/mia-clark/frp-manager-server/main/scripts/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.ps1 | iex
 #
 # 非交互 / 自定义示例 (先把脚本下到本地):
 #   powershell -ExecutionPolicy Bypass -File install.ps1 -Yes -Port 9000 -Token mysecret
@@ -39,7 +39,7 @@ $ErrorActionPreference = 'Stop'
 # ----------------------------------------------------------------------------
 # 常量配置
 # ----------------------------------------------------------------------------
-$Repo         = 'mia-clark/frp-manager-server'
+$Repo         = 'mia-clark/frps-manager'
 $BinName      = 'frpsmgrd.exe'
 $ServiceName  = 'frpsmgrd'
 $DisplayName  = 'frpsmgrd - FRP Manager Server'
@@ -463,7 +463,8 @@ function Register-FrpsmgrService {
         "FRPSMGR_DATA_DIR=$DataDir",
         "FRPSMGR_LOG_LEVEL=info",
         "FRPSMGR_CORS_ORIGINS=*",
-        "FRPSMGR_DOCS_ENABLED=true"
+        "FRPSMGR_DOCS_ENABLED=true",
+        "FRPSMGR_SELF_UPDATE_ENABLED=true"
     )
     & $script:NssmPath set $ServiceName AppEnvironmentExtra @envPairs | Out-Null
 
@@ -561,6 +562,58 @@ function Write-CliPanel {
     foreach ($r in $rows) { Write-Host ('    {0,-13} # {1}' -f $r[0], $r[1]) }
     Write-Host '────────────────────────────────────────────'
 }
+# ----------------------------------------------------------------------------
+# 外网 IP 探测 (与 install.ps1 主体同款, 此处独立嵌入让 fms 自包含)
+# ----------------------------------------------------------------------------
+$PubIpV4Urls = @(
+    'https://4.ipw.cn', 'https://api.ip.sb/ip', 'https://api.ipify.org',
+    'https://ifconfig.me/ip', 'https://ipv4.icanhazip.com',
+    'http://members.3322.org/dyndns/getip'
+)
+$PubIpV6Urls = @('https://6.ipw.cn', 'https://ipv6.icanhazip.com')
+
+function Get-PublicIps {
+    $found = New-Object System.Collections.Generic.HashSet[string]
+    foreach ($u in $PubIpV4Urls) {
+        try {
+            $r = Invoke-RestMethod -Uri $u -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+            if ($r) {
+                $m = ([string]$r -replace '\s', '') | Select-String -Pattern '([0-9]{1,3}\.){3}[0-9]{1,3}' -AllMatches
+                if ($m.Matches.Count -gt 0) { [void]$found.Add($m.Matches[0].Value) }
+            }
+        } catch { }
+    }
+    foreach ($u in $PubIpV6Urls) {
+        try {
+            $r = Invoke-RestMethod -Uri $u -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+            if ($r) {
+                $s = ([string]$r -replace '\s', '')
+                if ($s -match '^[0-9a-fA-F:]+$' -and $s -match ':') { [void]$found.Add($s) }
+            }
+        } catch { }
+    }
+    return @($found)
+}
+
+$script:PublicIpsCache = $null
+function Get-PublicIpsCached {
+    if ($null -eq $script:PublicIpsCache) { $script:PublicIpsCache = Get-PublicIps }
+    return $script:PublicIpsCache
+}
+
+function Write-UrlLine {
+    param([string]$Label, [string]$Port, [string]$Path = '')
+    Write-Host ('  {0,-8} : http://127.0.0.1:{1}{2}' -f $Label, $Port, $Path) -ForegroundColor Cyan
+    $ips = Get-PublicIpsCached
+    foreach ($ip in $ips) {
+        if ($ip -match ':') {
+            Write-Host ('             http://[{0}]:{1}{2}  (外网)' -f $ip, $Port, $Path) -ForegroundColor Cyan
+        } else {
+            Write-Host ('             http://{0}:{1}{2}  (外网)'   -f $ip, $Port, $Path) -ForegroundColor Cyan
+        }
+    }
+}
+
 function Do-Info {
     $port = '8080'; $token = '(未读取到)'; $ddir = $DataDir; $loglv = 'info'
     if (Use-Nssm) {
@@ -580,8 +633,11 @@ function Do-Info {
     Write-Host '────────────────────────────────────────────'
     Write-Host ("  版本     : {0}" -f $ver)
     Write-Host ("  服务状态 : {0}" -f $state)
-    Write-Host ("  访问地址 : http://127.0.0.1:{0}" -f $port)
-    Write-Host ("  API 文档 : http://127.0.0.1:{0}/api/docs" -f $port)
+    Write-UrlLine '访问地址' "$port"
+    Write-UrlLine 'API 文档' "$port" '/api/docs'
+    if ((Get-PublicIpsCached).Count -gt 0) {
+        Write-Host '  注: 外网地址能否实际访问取决于防火墙/安全组/NAT 是否放行该端口' -ForegroundColor Yellow
+    }
     Write-Host ("  API 令牌 : {0}" -f $token)
     Write-Host ("  监听地址 : :{0}" -f $port)
     Write-Host ("  日志级别 : {0}" -f $loglv)
@@ -772,13 +828,70 @@ function Write-CliHint {
     Write-Host '────────────────────────────────────────────'
 }
 
+# ----------------------------------------------------------------------------
+# 外网 IP 探测 (多源混合, 每个超时 ~1.5s, 失败静默)
+# ----------------------------------------------------------------------------
+$PubIpV4Urls = @(
+    'https://4.ipw.cn',
+    'https://api.ip.sb/ip',
+    'https://api.ipify.org',
+    'https://ifconfig.me/ip',
+    'https://ipv4.icanhazip.com',
+    'http://members.3322.org/dyndns/getip'
+)
+$PubIpV6Urls = @('https://6.ipw.cn', 'https://ipv6.icanhazip.com')
+
+function Get-PublicIps {
+    $found = New-Object System.Collections.Generic.HashSet[string]
+    foreach ($u in $PubIpV4Urls) {
+        try {
+            $r = Invoke-RestMethod -Uri $u -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+            if ($r) {
+                $m = ([string]$r -replace '\s', '') | Select-String -Pattern '([0-9]{1,3}\.){3}[0-9]{1,3}' -AllMatches
+                if ($m.Matches.Count -gt 0) { [void]$found.Add($m.Matches[0].Value) }
+            }
+        } catch { }
+    }
+    foreach ($u in $PubIpV6Urls) {
+        try {
+            $r = Invoke-RestMethod -Uri $u -TimeoutSec 2 -UseBasicParsing -ErrorAction Stop
+            if ($r) {
+                $s = ([string]$r -replace '\s', '')
+                if ($s -match '^[0-9a-fA-F:]+$' -and $s -match ':') { [void]$found.Add($s) }
+            }
+        } catch { }
+    }
+    return @($found)
+}
+
+$script:PublicIpsCache = $null
+function Get-PublicIpsCached {
+    if ($null -eq $script:PublicIpsCache) { $script:PublicIpsCache = Get-PublicIps }
+    return $script:PublicIpsCache
+}
+
+function Write-UrlLine {
+    param([string]$Label, [string]$Port, [string]$Path = '')
+    Write-Host ('  {0,-8} : http://127.0.0.1:{1}{2}' -f $Label, $Port, $Path) -ForegroundColor Cyan
+    $ips = Get-PublicIpsCached
+    foreach ($ip in $ips) {
+        if ($ip -match ':') {
+            Write-Host ('             http://[{0}]:{1}{2}  (外网)' -f $ip, $Port, $Path) -ForegroundColor Cyan
+        } else {
+            Write-Host ('             http://{0}:{1}{2}  (外网)'   -f $ip, $Port, $Path) -ForegroundColor Cyan
+        }
+    }
+}
+
 function Write-Summary {
-    $ip = '127.0.0.1'
     Write-Host ''
     Write-Host '✓ 安装完成!' -ForegroundColor Green
     Write-Host '────────────────────────────────────────────'
-    Write-Host ("  访问地址 : http://{0}:{1}" -f $ip, $script:Port)
-    Write-Host ("  API 文档 : http://{0}:{1}/api/docs" -f $ip, $script:Port)
+    Write-UrlLine '访问地址' "$($script:Port)"
+    Write-UrlLine 'API 文档' "$($script:Port)" '/api/docs'
+    if ((Get-PublicIpsCached).Count -gt 0) {
+        Write-Host '  注: 外网地址能否实际访问取决于防火墙/安全组/NAT 是否放行该端口' -ForegroundColor Yellow
+    }
     Write-Host ("  API 令牌 : {0}" -f $script:Token)
     Write-Host ("  安装目录 : {0}" -f $InstallDir)
     Write-Host ("  数据目录 : {0}" -f $DataDir)
@@ -826,7 +939,14 @@ function Invoke-Update {
 
     Write-Host ''
     Write-Host "✓ 更新完成! 版本: $target" -ForegroundColor Green
-    if ($script:Port) { Write-Host ("  访问地址 : http://127.0.0.1:{0}" -f $script:Port) }
+    if ($script:Port) {
+        # 重置缓存, 让 fms update 也能拿到最新外网 IP
+        $script:PublicIpsCache = $null
+        Write-UrlLine '访问地址' "$($script:Port)"
+        if ((Get-PublicIpsCached).Count -gt 0) {
+            Write-Host '  注: 外网地址能否实际访问取决于防火墙/安全组/NAT 是否放行该端口' -ForegroundColor Yellow
+        }
+    }
     Write-Info '现有端口、API 令牌与数据均未改动。'
     Write-CliHint
 }

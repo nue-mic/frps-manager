@@ -33,6 +33,7 @@ import {
 } from '@ant-design/icons';
 import type { ColumnsType } from 'antd/es/table';
 import client from '../api/client';
+import { fmtDateTime, fmtTime, fmtHourMinute } from '../utils/time';
 
 const { Title, Text } = Typography;
 
@@ -144,11 +145,6 @@ function fmtUptime(seconds: number): string {
   return parts.join(' ');
 }
 
-function fmtTime(t: number): string {
-  const d = new Date(t);
-  const pad = (n: number) => String(n).padStart(2, '0');
-  return `${pad(d.getMinutes())}:${pad(d.getSeconds())}`;
-}
 
 const SystemPage: React.FC = () => {
   const { token } = antdTheme.useToken();
@@ -302,10 +298,10 @@ const SystemPage: React.FC = () => {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={token.colorBorderSecondary} />
-                    <XAxis dataKey="t" tickFormatter={fmtTime} stroke={token.colorTextSecondary} fontSize={11} />
+                    <XAxis dataKey="t" tickFormatter={(t) => fmtHourMinute(Number(t))} stroke={token.colorTextSecondary} fontSize={11} />
                     <YAxis domain={[0, 100]} stroke={token.colorTextSecondary} fontSize={11} />
                     <RTooltip
-                      labelFormatter={(v) => new Date(Number(v)).toLocaleTimeString()}
+                      labelFormatter={(v) => fmtTime(Number(v))}
                       formatter={(v) => `${Number(v ?? 0).toFixed(1)}%`}
                       contentStyle={{ background: token.colorBgElevated, border: 'none' }}
                     />
@@ -350,10 +346,10 @@ const SystemPage: React.FC = () => {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={token.colorBorderSecondary} />
-                    <XAxis dataKey="t" tickFormatter={fmtTime} stroke={token.colorTextSecondary} fontSize={11} />
+                    <XAxis dataKey="t" tickFormatter={(t) => fmtHourMinute(Number(t))} stroke={token.colorTextSecondary} fontSize={11} />
                     <YAxis domain={[0, 100]} stroke={token.colorTextSecondary} fontSize={11} />
                     <RTooltip
-                      labelFormatter={(v) => new Date(Number(v)).toLocaleTimeString()}
+                      labelFormatter={(v) => fmtTime(Number(v))}
                       formatter={(v) => `${Number(v ?? 0).toFixed(1)}%`}
                       contentStyle={{ background: token.colorBgElevated, border: 'none' }}
                     />
@@ -408,10 +404,10 @@ const SystemPage: React.FC = () => {
                       </linearGradient>
                     </defs>
                     <CartesianGrid strokeDasharray="3 3" stroke={token.colorBorderSecondary} />
-                    <XAxis dataKey="t" tickFormatter={fmtTime} stroke={token.colorTextSecondary} fontSize={11} />
+                    <XAxis dataKey="t" tickFormatter={(t) => fmtHourMinute(Number(t))} stroke={token.colorTextSecondary} fontSize={11} />
                     <YAxis tickFormatter={(v) => fmtBytes(v)} stroke={token.colorTextSecondary} fontSize={11} width={56} />
                     <RTooltip
-                      labelFormatter={(v) => new Date(Number(v)).toLocaleTimeString()}
+                      labelFormatter={(v) => fmtTime(Number(v))}
                       formatter={(v, name) => [fmtRate(Number(v ?? 0)), name === 'rx' ? '接收' : '发送']}
                       contentStyle={{ background: token.colorBgElevated, border: 'none' }}
                     />
@@ -479,7 +475,7 @@ const SystemPage: React.FC = () => {
                   {info.host.virtualization ? <Tag color="blue">{info.host.virtualization}</Tag> : '—'}
                 </Descriptions.Item>
                 <Descriptions.Item label="启动时间">
-                  {new Date(info.host.boot_time * 1000).toLocaleString()}
+                  {fmtDateTime(info.host.boot_time * 1000)}
                 </Descriptions.Item>
                 <Descriptions.Item label="CPU 型号" span={2}>
                   <Tooltip title={info.cpu?.model_name || ''}>
@@ -511,7 +507,7 @@ const SystemPage: React.FC = () => {
                   <Descriptions.Item label="打开文件数">{info.process.open_files}</Descriptions.Item>
                 )}
                 <Descriptions.Item label="启动时间">
-                  {new Date(info.process.start_time).toLocaleString()}
+                  {fmtDateTime(info.process.start_time)}
                 </Descriptions.Item>
                 <Descriptions.Item label="数据目录">
                   <Text code>{info?.data_dir || '—'}</Text>
