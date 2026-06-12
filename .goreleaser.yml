@@ -89,6 +89,10 @@ release:
   github:
     owner: mia-clark
     name: frps-manager
+  # OpenWrt ipk（单个 all 包）随发布一并上传。该 ipk 由 CI 在 goreleaser 之前
+  # 用 openwrt/build-ipk.sh 生成到 openwrt-dist/（见 .github/workflows/release.yml）。
+  extra_files:
+    - glob: ./openwrt-dist/*.ipk
   header: |
     ## frpsmgrd {{ .Tag }}
 

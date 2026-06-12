@@ -1,0 +1,14 @@
+{
+	"luci-app-frpsmgrd": {
+		"description": "Grant access to frpsmgrd web shell (config / fetch core / service control)",
+		"read": {
+			"uci": [ "frpsmgrd" ]
+		},
+		"write": {
+			"uci": [ "frpsmgrd" ],
+			"file": {
+				"/usr/bin/frpsmgrd": [ "write" ]
+			}
+		}
+	}
+}

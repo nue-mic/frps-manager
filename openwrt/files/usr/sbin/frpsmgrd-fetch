@@ -1,0 +1,250 @@
+#!/bin/sh
+# =============================================================================
+# frpsmgrd-fetch — 识别本机 CPU 架构，拉取对应的 frpsmgrd 静态二进制并装到 /usr/bin
+#
+#   下载优先级（与 frps-manager/install.sh 同款）：
+#     ① 自建 gh-raw 通道（首选）：{base}/{key}/{tag}/{file}
+#     ② 公共 GitHub 代理（兜底）：{proxy}https://github.com/.../releases/download/...
+#     ③ GitHub 直连（最后兜底）
+#
+#   由 all 架构 ipk 的 postinst 在安装时调用；也可随时手动重跑：
+#     frpsmgrd-fetch                 # 装/重装 VERSION 文件记录的版本
+#     frpsmgrd-fetch 1.2.40          # 装指定版本
+#     frpsmgrd-fetch latest          # 查最新版（经自建源/GitHub API）并安装（更新用）
+#     frpsmgrd-fetch --no-proxy      # 跳过自建源与公共代理，直连 GitHub
+#
+#   UCI 可选项 (/etc/config/frpsmgrd main 节)：
+#     option version '1.2.34'          覆盖默认版本；填 latest 表示拉最新
+#     option download_proxy 'https://my.mirror/'  指定单一公共代理（跳过内置公共代理列表）
+#     option no_proxy '1'              跳过自建源 + 公共代理，直连 GitHub
+#     option release_proxy_bases 'https://a,https://b'  覆盖内置自建 gh-raw 域名列表（逗号分隔）
+#     option install_proxy_key 'frps-mgr-releases'  覆盖自建源的资源键（一般无需改）
+#
+#   注意：frps 服务端依赖 modernc.org/sqlite，发布矩阵不含 mips/mipsle/mips64/
+#   mips64le/loong64（无法交叉编译），故本 fetcher 在这些架构上会直接报错退出。
+# =============================================================================
+set -eu
+
+REPO="mia-clark/frps-manager"
+BIN_NAME="frpsmgrd"
+INSTALL_DIR="/usr/bin"
+LIBDIR="/usr/lib/frpsmgrd"
+
+# 自建 GitHub-Release 代理（gh-raw）首选通道：
+#   版本查询 GET {base}/{key}/latest      -> JSON, 取 "tag"
+#   资产下载 GET {base}/{key}/{tag}/{file} -> 二进制流
+GHRAW_BASES_DEFAULT="
+https://gh-raw.966788.xyz
+https://gh-raw.988669.xyz
+https://gh-raw.s03.qzz.io
+https://gh-raw.s04.qzz.io
+https://gh-raw.s05.qzz.io
+https://gh-raw.s06.qzz.io
+https://gh-raw.s07.qzz.io
+"
+GHRAW_KEY_DEFAULT="frps-mgr-releases"
+
+# 公共 GitHub 代理（仅作兜底；自建源全失败才用）
+DL_PROXIES="
+https://gh-proxy.com/
+https://ghfast.top/
+https://github.tbedu.top/
+https://gh.idayer.com/
+https://docker.srv1.qzz.io/
+https://dk-proxy.srv1.qzz.io/
+https://dk-proxy.966788.xyz/
+https://dk-proxy.srv0.qzz.io/
+https://docker.srv0.qzz.io/
+https://docker.966788.xyz/
+"
+
+log() { logger -t frpsmgrd-fetch "$*" 2>/dev/null; printf '%s\n' "[frpsmgrd-fetch] $*"; }
+die() { printf '%s\n' "[frpsmgrd-fetch][x] $*" >&2; logger -t frpsmgrd-fetch "ERROR: $*" 2>/dev/null; exit 1; }
+
+# ---------------------------------------------------------------------------
+# 解析参数 / UCI
+# ---------------------------------------------------------------------------
+VERSION=""
+NO_PROXY=0
+PROXY_OVERRIDE=""
+GHRAW_BASES=""
+GHRAW_KEY=""
+
+for a in "$@"; do
+	case "$a" in
+		--no-proxy) NO_PROXY=1 ;;
+		--proxy=*)  PROXY_OVERRIDE="${a#--proxy=}" ;;
+		-h|--help)  sed -n '2,25p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+		-*)         die "未知参数: $a" ;;
+		*)          VERSION="$a" ;;
+	esac
+done
+
+if command -v uci >/dev/null 2>&1; then
+	[ -n "$VERSION" ]        || VERSION="$(uci -q get frpsmgrd.main.version 2>/dev/null || true)"
+	[ -n "$PROXY_OVERRIDE" ] || PROXY_OVERRIDE="$(uci -q get frpsmgrd.main.download_proxy 2>/dev/null || true)"
+	GHRAW_BASES="$(uci -q get frpsmgrd.main.release_proxy_bases 2>/dev/null || true)"
+	GHRAW_KEY="$(uci -q get frpsmgrd.main.install_proxy_key 2>/dev/null || true)"
+	[ "$NO_PROXY" = "1" ] || [ "$(uci -q get frpsmgrd.main.no_proxy 2>/dev/null || echo 0)" != "1" ] || NO_PROXY=1
+fi
+
+# 自建源域名 / 键的最终取值（UCI 逗号分隔 -> 空格分隔）
+[ -n "$GHRAW_BASES" ] && GHRAW_BASES="$(printf '%s' "$GHRAW_BASES" | tr ',' ' ')" || GHRAW_BASES="$GHRAW_BASES_DEFAULT"
+[ -n "$GHRAW_KEY" ] || GHRAW_KEY="$GHRAW_KEY_DEFAULT"
+
+# ---------------------------------------------------------------------------
+# 下载工具
+# ---------------------------------------------------------------------------
+fetch_file() {  # <url> <dest>
+	if command -v curl >/dev/null 2>&1; then curl -fsSL --max-time 60 "$1" -o "$2"
+	elif command -v wget >/dev/null 2>&1; then wget -q --timeout=60 -O "$2" "$1"
+	else die "未找到 curl 或 wget，无法下载"; fi
+}
+fetch_stdout() {  # <url>
+	if command -v curl >/dev/null 2>&1; then curl -fsSL --max-time 15 "$1"
+	elif command -v wget >/dev/null 2>&1; then wget -qO- --timeout=15 "$1"
+	else return 1; fi
+}
+verify_targz() { [ -s "$1" ] && tar -tzf "$1" >/dev/null 2>&1; }
+
+# ---------------------------------------------------------------------------
+# 版本解析：留空 / latest 时，先问自建源 {base}/{key}/latest 取 "tag"，再回落 GitHub API
+# ---------------------------------------------------------------------------
+resolve_latest() {
+	_tag=""
+	if [ "$NO_PROXY" != "1" ]; then
+		for _base in $GHRAW_BASES; do
+			_tag="$(fetch_stdout "${_base%/}/${GHRAW_KEY}/latest" 2>/dev/null \
+				| grep '"tag"' | head -n1 \
+				| sed -E 's/.*"tag"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')" || true
+			[ -n "$_tag" ] && break
+		done
+	fi
+	if [ -z "$_tag" ]; then
+		_tag="$(fetch_stdout "https://api.github.com/repos/${REPO}/releases/latest" 2>/dev/null \
+			| grep '"tag_name"' | head -n1 \
+			| sed -E 's/.*"tag_name"[[:space:]]*:[[:space:]]*"([^"]+)".*/\1/')" || true
+	fi
+	printf '%s' "${_tag#v}"
+}
+
+# 默认版本读打包时写入的 VERSION 文件
+[ -n "$VERSION" ] || VERSION="$(cat "$LIBDIR/VERSION" 2>/dev/null || true)"
+if [ -z "$VERSION" ] || [ "$VERSION" = "latest" ]; then
+	log "查询最新版本..."
+	VERSION="$(resolve_latest)"
+	[ -n "$VERSION" ] || die "无法获取最新版本（自建源与 GitHub API 均不可用）。请用 frpsmgrd-fetch <版本> 指定"
+fi
+VERSION="${VERSION#v}"   # 统一去掉前导 v
+
+# ---------------------------------------------------------------------------
+# 架构探测
+#
+#   frps 服务端依赖 modernc.org/sqlite（指标存储 metrics.db），其 modernc.org/libc
+#   不为 mips/mipsle/mips64/mips64le/loong64 提供平台源文件，goreleaser 也未发布
+#   这些目标的二进制。故仅支持以下架构，其余直接报错退出（避免拉到不存在的资产）。
+# ---------------------------------------------------------------------------
+detect_token() {
+	_m="$(uname -m 2>/dev/null || echo unknown)"
+	case "$_m" in
+		x86_64|amd64)              echo amd64 ;;
+		aarch64|arm64)             echo arm64 ;;
+		armv7l|armv7|armhf|arm)    echo armv7 ;;
+		armv6l|armv6)              echo armv6 ;;
+		i386|i486|i586|i686|x86)   echo 386 ;;
+		riscv64)                   echo riscv64 ;;
+		mips|mipsel|mipsle|mips64|mips64el|mips64le)
+			die "本机为 MIPS 架构 ($_m)，frpsmgrd 因依赖 modernc.org/sqlite 暂不发布 mips 系列二进制。请在 x86 / ARM / RISC-V 设备上部署 frps 服务端。" ;;
+		loongarch64|loong64)
+			die "本机为 LoongArch 架构 ($_m)，frpsmgrd 暂不发布 loong64 二进制（modernc.org/sqlite 缺源）。请改用 x86 / ARM 设备。" ;;
+		*)       die "不支持的 CPU 架构: $_m" ;;
+	esac
+}
+
+# ---------------------------------------------------------------------------
+# 下载：① 自建 gh-raw 首选 → ② 公共代理兜底 → ③ GitHub 直连
+# ---------------------------------------------------------------------------
+# 公共代理 / 直连兜底（仅在自建源失败后调用）
+fallback_download() {  # <github_url> <dest>
+	_gh="$1"; _dest="$2"
+	if [ -n "$PROXY_OVERRIDE" ]; then
+		_p="${PROXY_OVERRIDE%/}/"
+		log "使用指定公共代理: ${_p}"
+		fetch_file "${_p}${_gh}" "$_dest" 2>/dev/null || true
+		verify_targz "$_dest" && return 0
+		log "指定代理失败，回落直连"; rm -f "$_dest"
+	elif [ "$NO_PROXY" != "1" ]; then
+		for _p in $DL_PROXIES; do
+			log "尝试公共代理: ${_p}"
+			fetch_file "${_p}${_gh}" "$_dest" 2>/dev/null || { rm -f "$_dest"; continue; }
+			verify_targz "$_dest" && { log "下载源(公共代理): ${_p}"; return 0; }
+			rm -f "$_dest"
+		done
+		log "全部公共代理失败，回落直连 GitHub"
+	fi
+	log "直连 GitHub: ${_gh}"
+	fetch_file "$_gh" "$_dest" || return 1
+	verify_targz "$_dest" || { rm -f "$_dest"; return 1; }
+}
+
+download_asset() {  # <dest>
+	_dest="$1"
+	# ① 自建 gh-raw 首选（除非 --no-proxy）
+	if [ "$NO_PROXY" != "1" ]; then
+		for _base in $GHRAW_BASES; do
+			log "尝试自建源: ${_base%/}"
+			fetch_file "${_base%/}/${GHRAW_KEY}/v${VERSION}/${ASSET}" "$_dest" 2>/dev/null || { rm -f "$_dest"; continue; }
+			verify_targz "$_dest" && { log "下载源(自建): ${_base%/}"; return 0; }
+			log "  -> 返回非法包(伪 200?)，跳下一个"; rm -f "$_dest"
+		done
+		log "自建源全部不可用，回落公共代理/直连"
+	fi
+	# ②③ 公共代理 + 直连兜底
+	fallback_download "$GH_URL" "$_dest"
+}
+
+# ---------------------------------------------------------------------------
+# 安装前空间预检（二进制约 25-30MB，小 flash 设备需 extroot）
+# ---------------------------------------------------------------------------
+space_ok() {
+	command -v df >/dev/null 2>&1 || return 0
+	_avail="$(df -k "$INSTALL_DIR" 2>/dev/null | awk 'NR==2{print $4}')"
+	case "$_avail" in ''|*[!0-9]*) return 0 ;; esac
+	[ "$_avail" -ge 32000 ]
+}
+
+# ---------------------------------------------------------------------------
+# 主流程
+# ---------------------------------------------------------------------------
+TOKEN="$(detect_token)"
+ASSET="${BIN_NAME}_${VERSION}_linux_${TOKEN}.tar.gz"
+GH_URL="https://github.com/${REPO}/releases/download/v${VERSION}/${ASSET}"
+
+log "目标版本 ${VERSION} / 架构 ${TOKEN}"
+
+if ! space_ok; then
+	die "安装目录 ${INSTALL_DIR} 可用空间不足（需约 32MB）。请先配置 extroot/USB 外置存储后重试：https://openwrt.org/docs/guide-user/additional-software/extroot_configuration"
+fi
+
+TMP="$(mktemp -d 2>/dev/null || echo /tmp/frpsmgrd-fetch.$$)"
+mkdir -p "$TMP"
+# shellcheck disable=SC2064
+trap "rm -rf '$TMP'" EXIT INT TERM
+
+log "下载: ${ASSET}"
+download_asset "${TMP}/${ASSET}" || die "下载失败（自建源 + 公共代理 + 直连均不可用）。请检查网络后重跑: frpsmgrd-fetch"
+
+tar -xzf "${TMP}/${ASSET}" -C "$TMP" || die "解压失败"
+[ -f "${TMP}/${BIN_NAME}" ] || die "安装包中未找到二进制 ${BIN_NAME}"
+
+mkdir -p "$INSTALL_DIR"
+# 先装到临时名再原子改名，避免覆盖运行中的二进制导致 text busy。
+# 用 cp+chmod 而非 install：busybox 默认不带 install applet。
+cp "${TMP}/${BIN_NAME}" "${INSTALL_DIR}/.${BIN_NAME}.new"
+chmod 0755 "${INSTALL_DIR}/.${BIN_NAME}.new"
+mv -f "${INSTALL_DIR}/.${BIN_NAME}.new" "${INSTALL_DIR}/${BIN_NAME}"
+
+# 记录已安装版本，便于排查
+mkdir -p "$LIBDIR"; printf '%s\n' "$VERSION" > "$LIBDIR/INSTALLED" 2>/dev/null || true
+
+log "已安装 ${INSTALL_DIR}/${BIN_NAME} ($("${INSTALL_DIR}/${BIN_NAME}" version 2>/dev/null || echo "version ${VERSION}"))"

@@ -5,7 +5,7 @@ LDFLAGS := -s -w \
     -X github.com/mia-clark/frps-manager/pkg/version.Number=$(VERSION) \
     -X github.com/mia-clark/frps-manager/pkg/version.BuildDate=$(BUILD_DATE)
 
-.PHONY: build build-host web web-install test vet tidy clean docker run
+.PHONY: build build-host web web-install test vet tidy clean docker run ipk
 
 # 前端依赖 — 仅在 node_modules 缺失时跑一次完整 install
 web-install:
@@ -48,3 +48,9 @@ docker:
 
 run: build-host
 	FRPSMGR_API_TOKEN=dev FRPSMGR_DATA_DIR=./tmp/data ./bin/frpsmgrd serve
+
+# OpenWrt 单个 all 架构 ipk（壳子包，装时由 frpsmgrd-fetch 按 CPU 拉二进制）。
+# 需 nfpm：go install github.com/goreleaser/nfpm/v2/cmd/nfpm@latest
+# VERSION 决定 fetcher 默认拉取的二进制版本，发布时由 CI 注入真实版本号。
+ipk:
+	./openwrt/build-ipk.sh --version $(VERSION) --out dist-ipk
