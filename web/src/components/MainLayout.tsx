@@ -22,6 +22,7 @@ import client, { getAPIToken, clearAPIToken } from '../api/client';
 import { checkVersion } from '../api/update';
 import ThemeSwitcher from '../theme/ThemeSwitcher';
 import { useEventStream } from '../events/EventStreamContext';
+import { useBranding } from '../branding/BrandingContext';
 
 const { Header, Sider, Content } = Layout;
 const { Text } = Typography;
@@ -34,6 +35,7 @@ const MainLayout: React.FC = () => {
   const { message } = App.useApp();
   const { token } = antdTheme.useToken();
   const stream = useEventStream();
+  const { branding } = useBranding();
 
   const [version, setVersion] = useState<string>('获取中…');
   const [frpVer, setFrpVer] = useState<string>('');
@@ -181,10 +183,15 @@ const MainLayout: React.FC = () => {
             borderBottom: '1px solid rgba(255,255,255,0.06)',
           }}
         >
-          <SafetyCertificateOutlined style={{ fontSize: 22, color: token.colorPrimary }} />
-          <Text strong style={{ color: '#fff', fontSize: 15, letterSpacing: 0.5 }}>
-            FRPS Manager
-          </Text>
+          <SafetyCertificateOutlined style={{ fontSize: 22, color: token.colorPrimary, flex: '0 0 auto' }} />
+          <div style={{ display: 'flex', flexDirection: 'column', minWidth: 0, lineHeight: 1.15 }}>
+            <Text strong style={{ color: '#fff', fontSize: 15, letterSpacing: 0.5, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {branding.app_name}
+            </Text>
+            <Text style={{ color: 'rgba(255,255,255,0.45)', fontSize: 11, whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {branding.app_subtitle}
+            </Text>
+          </div>
         </div>
         <Menu
           theme="dark"

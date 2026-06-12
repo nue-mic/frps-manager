@@ -34,9 +34,13 @@ func NewRouter(d Deps) http.Handler {
 
 	sys := NewSystemHandler(d.Cfg.DataDir)
 	docs := NewDocsHandler(d.Cfg.DocsEnabled)
+	ui := NewUIHandler(d.Manager)
 
 	// Unauthenticated probes + docs.
 	r.Get("/api/v1/health", sys.Health)
+	// UI branding is read without auth so the login page + browser <title>
+	// render the custom brand before the user is authenticated.
+	r.Get("/api/v1/ui/branding", ui.GetBranding)
 	if docs.Enabled() {
 		r.Get("/api/docs", docs.Redirect)
 		r.Get("/api/docs/", docs.UI)
@@ -61,6 +65,9 @@ func NewRouter(d Deps) http.Handler {
 		r.Get("/api/v1/version", sys.Version)
 		r.Get("/api/v1/version/check", upd.Check)
 		r.Post("/api/v1/system/update", upd.Update)
+
+		// UI 品牌持久化（品牌名 / 副标题 / 浏览器标题），仅鉴权后可改
+		r.Put("/api/v1/ui/branding", ui.UpdateBranding)
 
 		r.Get("/api/v1/configs", configs.List)
 		r.Post("/api/v1/configs", configs.Create)
@@ -133,8 +140,9 @@ func NewRouter(d Deps) http.Handler {
 
 		filePath := strings.TrimPrefix(r.URL.Path, "/")
 
-		// 存在的静态资源（js/css/图片等）交给 FileServer 处理
-		if filePath != "" {
+		// 真正存在的静态资源（hash 命名的 js/css/图片等）交给 FileServer 处理，
+		// 保留其强缓存。index.html 例外——它要走下面的品牌注入分支。
+		if filePath != "" && filePath != "index.html" {
 			if f, err := webFS.Open(filePath); err == nil {
 				f.Close()
 				fileServer.ServeHTTP(w, r)
@@ -142,20 +150,24 @@ func NewRouter(d Deps) http.Handler {
 			}
 		}
 
-		// 文件不存在（前端 BrowserRouter 的深链接，如 /configs）→ 直接返回 index.html
-		// 让前端路由接管。
+		// index.html（根路径 "/"、显式 /index.html、或前端 BrowserRouter 深链接
+		// 如 /configs）→ 读取内嵌 index.html，就地注入当前品牌（<title> +
+		// window.__FRPS_BRANDING__）后写出，实现首屏零闪。
 		//
 		// 注意：不能改写成 r.URL.Path = "/index.html" 再走 FileServer——http.FileServer
 		// 会把任何以 /index.html 结尾的请求 301 重定向到 "./"，导致刷新任意子页面都被
-		// 重定向回首页。因此这里直接读取并写出 index.html 内容。
+		// 重定向回首页。因此这里直接读取、注入并写出。
 		index, err := fs.ReadFile(webFS, "index.html")
 		if err != nil {
 			http.NotFound(w, r)
 			return
 		}
+		out := ui.InjectBranding(index)
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		// SPA 壳必须随取随新，确保品牌改动立即生效；静态资源仍走强缓存。
+		w.Header().Set("Cache-Control", "no-cache, no-store, must-revalidate")
 		w.WriteHeader(http.StatusOK)
-		_, _ = w.Write(index)
+		_, _ = w.Write(out)
 	})
 
 	return r

@@ -11,7 +11,7 @@
 |---|---|
 | 监听地址 | `FRPSMGR_HTTP_ADDR`，默认 `:8080` |
 | 数据目录 | `FRPSMGR_DATA_DIR`，默认 `/data`（子目录：`profiles/`、`logs/`、`stores/`、`meta.json`） |
-| 鉴权 | 除 `/api/v1/health` 与 `/api/docs/*` 外，所有 `/api/v1/*` 都要求 `Authorization: Bearer <FRPSMGR_API_TOKEN>` |
+| 鉴权 | 除 `/api/v1/health`、`GET /api/v1/ui/branding` 与 `/api/docs/*` 外，所有 `/api/v1/*` 都要求 `Authorization: Bearer <FRPSMGR_API_TOKEN>` |
 | Content-Type | 除特别说明（`/raw`、`/import/*`、`/validate`、`/export/*`、WS）外，**请求/返回均为 `application/json; charset=utf-8`** |
 | JSON 严格性 | 后端 `decodeJSON` 启用 `DisallowUnknownFields()`，请求体多带一个 key 直接 **`400`** |
 | 401 时机 | 缺失或错误 Bearer Token；前端拦截器会清理 token 并跳转 `/login` |
@@ -151,6 +151,34 @@
 | `GET /api/docs/openapi.json` | 同上（Content-Type 不同，主体仍为 YAML 文本） |
 
 `FRPSMGR_DOCS_ENABLED=false` 可整片下线。
+
+### 1.6 `GET /api/v1/ui/branding` — 读取 UI 品牌（**无需鉴权**）
+
+返回**生效品牌**：管理员未自定义的字段回退到默认值。字段为 **snake_case**。
+
+```json
+{ "app_name": "FRPS Manager", "app_subtitle": "服务端管理面板", "html_title": "FRPS Manager · 服务端管理面板" }
+```
+
+> 公开端点，使登录页与浏览器 `<title>` 在登录前即可渲染自定义值。守护进程下发
+> index.html 时已就地把 `<title>` 改写为 `html_title`、并注入 `window.__FRPS_BRANDING__`
+> 为当前品牌，前端首帧即正确，无需等待本接口（零闪）。
+
+### 1.7 `PUT /api/v1/ui/branding` — 更新 UI 品牌
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `app_name` | string | 品牌名（侧边栏 + 登录页主标题），≤ 40 字符 |
+| `app_subtitle` | string | 副标题（侧边栏品牌名下方小字），≤ 60 字符 |
+| `html_title` | string | 浏览器标签 `<title>`，≤ 120 字符 |
+
+三字段均**可选**：省略保留当前存储值，显式空串则**重置为默认**。值会被 trim 并按
+字符（rune）限长。返回更新后的**生效品牌**（结构同 1.6）。持久化在
+`<DataDir>/meta.json` 的 `branding` 字段，清浏览器缓存 / 重登后仍生效。
+
+```json
+{ "app_name": "我的内网穿透", "app_subtitle": "服务端控制台", "html_title": "我的内网穿透 · 控制台" }
+```
 
 ---
 

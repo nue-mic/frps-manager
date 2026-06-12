@@ -485,6 +485,42 @@ func (m *Manager) SetLogViewSince(id string, unixMilli int64) error {
 	return m.meta.setLogViewSince(id, unixMilli)
 }
 
+// GetBranding returns the effective UI branding — stored overrides with the
+// Default* constants filled in for any empty field, so callers always get a
+// ready-to-render value.
+func (m *Manager) GetBranding() Branding {
+	return m.meta.branding().Effective()
+}
+
+// GetBrandingRaw returns the raw stored branding (no defaults applied). Used
+// by the PUT handler to preserve fields the client omitted.
+func (m *Manager) GetBrandingRaw() Branding {
+	return m.meta.branding()
+}
+
+// SetBranding persists the UI branding. Values are trimmed and length-capped;
+// an empty field is stored as empty and resolves to its default on read.
+// Returns the effective branding after the write.
+func (m *Manager) SetBranding(in Branding) (Branding, error) {
+	in.AppName = truncateRunes(strings.TrimSpace(in.AppName), 40)
+	in.AppSubtitle = truncateRunes(strings.TrimSpace(in.AppSubtitle), 60)
+	in.HTMLTitle = truncateRunes(strings.TrimSpace(in.HTMLTitle), 120)
+	if err := m.meta.setBranding(in); err != nil {
+		return Branding{}, err
+	}
+	return in.Effective(), nil
+}
+
+// truncateRunes caps s to at most max runes (not bytes), so multi-byte CJK
+// brand names are not cut mid-character.
+func truncateRunes(s string, max int) string {
+	r := []rune(s)
+	if len(r) <= max {
+		return s
+	}
+	return string(r[:max])
+}
+
 // instanceLog is a lazily-opened, mutex-guarded append writer for one
 // instance's worker output. Open errors are swallowed so they never break
 // the frps child's stdio pipe.

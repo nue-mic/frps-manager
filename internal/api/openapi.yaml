@@ -64,6 +64,42 @@ tags:
 
 paths:
   # ============================================================
+  # 0. UI 品牌（GET 公开，PUT 鉴权）
+  # ============================================================
+  /api/v1/ui/branding:
+    get:
+      tags: [ui]
+      security: []
+      summary: 读取 UI 品牌（品牌名 + 副标题 + 浏览器标题）
+      description: >
+        返回生效品牌（未自定义的字段回退默认值）。公开端点，便于登录页与
+        浏览器 <title> 在登录前即可渲染自定义值。
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Branding' }
+    put:
+      tags: [ui]
+      summary: 更新 UI 品牌（需鉴权）
+      description: >
+        三个字段均可选：省略的字段保留当前存储值，显式空串则重置为默认。
+        值会被 trim 并限长（app_name ≤ 40、app_subtitle ≤ 60、html_title ≤ 120 字符）。
+        返回更新后的生效品牌。
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/Branding' }
+      responses:
+        '200':
+          description: OK
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Branding' }
+
+  # ============================================================
   # 0. 系统：健康/版本/Docs（health 无需鉴权）
   # ============================================================
   /api/v1/health:
@@ -1012,6 +1048,18 @@ components:
           schema: { $ref: '#/components/schemas/Error' }
 
   schemas:
+    # ----- UI 品牌 -----
+    Branding:
+      description: >
+        UI 品牌。app_name 用于侧边栏与登录页品牌名，app_subtitle 用于侧边栏
+        副标题，html_title 用于浏览器标签 <title>。GET 返回生效值（空字段已回退
+        默认）；PUT 时各字段可选（省略保留、空串重置为默认）。
+      type: object
+      properties:
+        app_name:     { type: string, maxLength: 40,  example: "FRPS Manager" }
+        app_subtitle: { type: string, maxLength: 60,  example: "服务端管理面板" }
+        html_title:   { type: string, maxLength: 120, example: "FRPS Manager · 服务端管理面板" }
+
     # ----- 错误信封 -----
     ErrorBody:
       type: object

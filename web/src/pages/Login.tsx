@@ -14,6 +14,7 @@ import {
 } from '@ant-design/icons';
 import { useNavigate } from 'react-router-dom';
 import client, { setAPIToken, getAPIToken } from '../api/client';
+import { useBranding } from '../branding/BrandingContext';
 
 const { Title, Text, Link: ATypoLink } = Typography;
 
@@ -22,6 +23,7 @@ const Login: React.FC = () => {
   const { message } = App.useApp();
   const { token } = antdTheme.useToken();
   const screens = Grid.useBreakpoint();
+  const { branding } = useBranding();
   const [loading, setLoading] = useState<boolean>(false);
 
   useEffect(() => {
@@ -237,7 +239,7 @@ const Login: React.FC = () => {
               <SafetyCertificateOutlined style={{ fontSize: 22, color: '#fff' }} />
             </div>
             <Text strong style={{ color: '#fff', fontSize: 17, letterSpacing: 0.5 }}>
-              FRPS Manager
+              {branding.app_name}
             </Text>
           </div>
 

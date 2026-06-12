@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
   Card,
   Space,
@@ -13,15 +13,19 @@ import {
   Row,
   Col,
   Alert,
+  Input,
   theme as antdTheme,
 } from 'antd';
 import {
   UserOutlined,
   SettingOutlined,
   KeyOutlined,
+  TagsOutlined,
 } from '@ant-design/icons';
 import { clearAPIToken, getAPIToken } from '../api/client';
 import { useTheme } from '../theme/ThemeContext';
+import { useBranding } from '../branding/BrandingContext';
+import { updateBranding } from '../api/branding';
 
 const { Title, Text } = Typography;
 
@@ -29,6 +33,41 @@ const Settings: React.FC = () => {
   const { token } = antdTheme.useToken();
   const { message, modal } = App.useApp();
   const { mode, setMode, resolved } = useTheme();
+  const { branding, setBrandingLocal } = useBranding();
+
+  const [brandForm] = Form.useForm();
+  const [savingBrand, setSavingBrand] = useState(false);
+  // 品牌可能在挂载后由公开 GET 异步校正，故用 effect 同步表单回填。
+  useEffect(() => {
+    brandForm.setFieldsValue({
+      app_name: branding.app_name,
+      app_subtitle: branding.app_subtitle,
+      html_title: branding.html_title,
+    });
+  }, [branding, brandForm]);
+
+  const onSaveBranding = async (vals: {
+    app_name?: string;
+    app_subtitle?: string;
+    html_title?: string;
+  }) => {
+    setSavingBrand(true);
+    try {
+      // 空串显式发给后端 → 重置为默认；后端返回生效值。
+      const next = await updateBranding({
+        app_name: vals.app_name ?? '',
+        app_subtitle: vals.app_subtitle ?? '',
+        html_title: vals.html_title ?? '',
+      });
+      setBrandingLocal(next); // 即时刷新侧边栏 / 登录页 / 浏览器标题
+      brandForm.setFieldsValue(next);
+      message.success('品牌已保存，已即时生效');
+    } catch {
+      message.error('保存失败，请检查登录令牌与网络');
+    } finally {
+      setSavingBrand(false);
+    }
+  };
 
   const [autoCollapse, setAutoCollapse] = useState<boolean>(
     () => localStorage.getItem('frpsmgr_sidebar_collapse') === '1'
@@ -68,7 +107,7 @@ const Settings: React.FC = () => {
             <SettingOutlined /> 设置
           </Title>
           <Text type="secondary" style={{ fontSize: 13 }}>
-            个性化、账户和版本信息。所有偏好都只保存在浏览器本地，更换设备需要重新设置。
+            个性化、账户和版本信息。外观与账户偏好保存在浏览器本地；品牌保存在服务端，跨设备 / 清缓存后依然生效。
           </Text>
         </Space>
       </Card>
@@ -137,6 +176,57 @@ const Settings: React.FC = () => {
         </Col>
 
       </Row>
+
+      <Card
+        title={<Space><TagsOutlined /> 品牌 / 标识</Space>}
+        styles={{ body: { padding: 18 } }}
+        style={{ borderRadius: 10 }}
+      >
+        <Form
+          form={brandForm}
+          layout="vertical"
+          onFinish={onSaveBranding}
+          style={{ maxWidth: 560 }}
+        >
+          <Form.Item
+            label="品牌名"
+            name="app_name"
+            extra="显示在侧边栏与登录页顶部。留空恢复默认「FRPS Manager」。"
+          >
+            <Input placeholder="FRPS Manager" maxLength={40} allowClear />
+          </Form.Item>
+          <Form.Item
+            label="副标题"
+            name="app_subtitle"
+            extra="品牌名下方的小字（侧边栏）。留空恢复默认「服务端管理面板」。"
+          >
+            <Input placeholder="服务端管理面板" maxLength={60} allowClear />
+          </Form.Item>
+          <Form.Item
+            label="浏览器标签标题"
+            name="html_title"
+            extra="浏览器标签页 title。留空恢复默认。"
+          >
+            <Input placeholder="FRPS Manager · 服务端管理面板" maxLength={120} allowClear />
+          </Form.Item>
+          <Form.Item style={{ marginBottom: 0 }}>
+            <Button type="primary" htmlType="submit" loading={savingBrand}>
+              保存品牌
+            </Button>
+          </Form.Item>
+        </Form>
+        <Alert
+          type="info"
+          showIcon
+          style={{ marginTop: 16, borderRadius: 8 }}
+          message="保存在服务端"
+          description={
+            <Text style={{ fontSize: 12 }}>
+              品牌保存在守护进程数据目录（meta.json），清浏览器缓存、换浏览器或重新登录后依然生效；首屏由服务端注入，零闪烁。
+            </Text>
+          }
+        />
+      </Card>
     </Space>
   );
 };

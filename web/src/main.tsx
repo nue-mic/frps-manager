@@ -5,6 +5,7 @@ import './index.css';
 import App from './App.tsx';
 import { ThemeProvider } from './theme/ThemeContext';
 import { EventStreamProvider } from './events/EventStreamContext';
+import { BrandingProvider } from './branding/BrandingContext';
 
 const queryClient = new QueryClient({
   defaultOptions: {
@@ -20,9 +21,11 @@ createRoot(document.getElementById('root')!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
       <ThemeProvider>
-        <EventStreamProvider>
-          <App />
-        </EventStreamProvider>
+        <BrandingProvider>
+          <EventStreamProvider>
+            <App />
+          </EventStreamProvider>
+        </BrandingProvider>
       </ThemeProvider>
     </QueryClientProvider>
   </StrictMode>
