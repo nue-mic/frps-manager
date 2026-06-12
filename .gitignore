@@ -3,6 +3,8 @@ dist/
 dist-ipk/
 openwrt-dist/
 tmp/
+# 部署 skill 的本地连接凭证（含密码，勿入库）
+.claude/skills/deploy-openwrt-frps/target.env
 data/
 node_modules/
 *.syso
