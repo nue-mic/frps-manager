@@ -20,6 +20,7 @@ import {
   ExclamationCircleOutlined,
   MenuFoldOutlined,
   MenuUnfoldOutlined,
+  FileTextOutlined,
 } from '@ant-design/icons';
 
 const LIST_COMPACT_KEY = 'frpsmgr_configs_compact';
@@ -39,7 +40,7 @@ const tomlEditorFontTheme = EditorView.theme({
   '.cm-scroller': { lineHeight: '1.55' },
 });
 
-import client, { getAPIToken } from '../api/client';
+import client from '../api/client';
 import { useTheme } from '../theme/ThemeContext';
 import { useEventSubscription } from '../events/EventStreamContext';
 import type { InstanceStateData } from '../events/types';
@@ -51,6 +52,8 @@ import {
   type ServerFullFormValues,
 } from './serverConfigForm';
 import ServerConfigGroups from './ServerConfigGroups';
+import LogConsole from '../components/LogConsole';
+import InstanceLivePreview from '../components/InstanceLivePreview';
 
 const { Title, Text } = Typography;
 
@@ -87,16 +90,8 @@ const Configs: React.FC = () => {
   const [rawToml, setRawToml] = useState<string>('');
   const [tomlLoading, setTomlLoading] = useState<boolean>(false);
 
-  // 迷你日志状态
-  const MINI_LOGS_MAX = 1000;
-  const [miniLogLines, setMiniLogLines] = useState<string[]>([]);
-  const [miniLogsLoading, setMiniLogsLoading] = useState<boolean>(false);
-  const [miniLogsPaused, setMiniLogsPaused] = useState<boolean>(false);
-  const [miniLogsWsState, setMiniLogsWsState] = useState<'idle' | 'connecting' | 'connected' | 'closed'>('idle');
-  const miniLogsPausedRef = useRef(miniLogsPaused);
-  miniLogsPausedRef.current = miniLogsPaused;
-  const miniLogsWsRef = useRef<WebSocket | null>(null);
-  const miniLogsBottomRef = useRef<HTMLDivElement | null>(null);
+  // 运行日志改用可复用的 <LogConsole>（自包含 WS 实时尾追 + 过滤 + 级别筛选 +
+  // 复制 + 清空/重连），此处不再维护迷你日志状态。
 
   // 新建配置 Modal
   const [newConfigModalOpen, setNewConfigModalOpen] = useState<boolean>(false);
@@ -319,9 +314,8 @@ const Configs: React.FC = () => {
       loadVisualConfig(id);
     } else if (activeTab === 'toml') {
       loadRawToml(id);
-    } else if (activeTab === 'logs') {
-      loadMiniLogs(id);
     }
+    // 'logs' tab：由 <LogConsole> 自行按 instanceId 拉取与实时尾追。
   };
 
   // 加载常规属性：从 GET /configs/{id} 的 env.config.* / env.frpsmgr.* 回填（不要用列表快照）
@@ -360,96 +354,6 @@ const Configs: React.FC = () => {
     } finally {
       setTomlLoading(false);
     }
-  };
-
-  // 关闭实时日志 WebSocket
-  const disconnectMiniLogsWS = () => {
-    if (miniLogsWsRef.current) {
-      try { miniLogsWsRef.current.close(); } catch {/* ignore */}
-      miniLogsWsRef.current = null;
-    }
-    setMiniLogsWsState('closed');
-  };
-
-  // 拉取历史日志 + WebSocket 实时尾追
-  const loadMiniLogs = async (id: string) => {
-    disconnectMiniLogsWS();
-    setMiniLogsLoading(true);
-    setMiniLogLines([]);
-    try {
-      const resp = await client.get(`/api/v1/configs/${id}/logs?lines=${MINI_LOGS_MAX}`);
-      if (resp.status === 200) {
-        const data = resp.data;
-        const lines: string[] = Array.isArray(data?.lines) ? data.lines : (Array.isArray(data) ? data : []);
-        setMiniLogLines(lines.slice(-MINI_LOGS_MAX));
-      }
-    } catch {
-      // 日志文件不存在很正常（实例从未启动过）
-    } finally {
-      setMiniLogsLoading(false);
-    }
-
-    const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
-    const apiToken = getAPIToken();
-    const wsUrl = `${protocol}//${window.location.host}/api/v1/configs/${id}/logs/tail?token=${encodeURIComponent(apiToken || '')}`;
-    setMiniLogsWsState('connecting');
-    try {
-      const ws = new WebSocket(wsUrl);
-      miniLogsWsRef.current = ws;
-      ws.onopen = () => setMiniLogsWsState('connected');
-      ws.onmessage = (evt) => {
-        if (miniLogsPausedRef.current) return;
-        let line: string | null = null;
-        try {
-          const obj = JSON.parse(evt.data);
-          if (obj && typeof obj.line === 'string') line = obj.line;
-        } catch {
-          if (typeof evt.data === 'string') line = evt.data;
-        }
-        if (line === null) return;
-        setMiniLogLines((prev) => {
-          const next = prev.length >= MINI_LOGS_MAX ? prev.slice(prev.length - MINI_LOGS_MAX + 1) : prev.slice();
-          next.push(line!);
-          return next;
-        });
-      };
-      ws.onerror = () => setMiniLogsWsState('closed');
-      ws.onclose = () => setMiniLogsWsState('closed');
-    } catch {
-      setMiniLogsWsState('closed');
-    }
-  };
-
-  const handleClearMiniLogs = async (id: string) => {
-    if (!id) return;
-    try {
-      await client.delete(`/api/v1/configs/${id}/logs`);
-      setMiniLogLines([]);
-      message.success('日志已清空');
-    } catch (err: any) {
-      message.error('清空失败: ' + (err.response?.data?.error?.message || err.message));
-    }
-  };
-
-  useEffect(() => {
-    if (activeTab !== 'logs') {
-      disconnectMiniLogsWS();
-    }
-    return () => disconnectMiniLogsWS();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeTab, activeConfigId]);
-
-  useEffect(() => {
-    if (miniLogsPaused) return;
-    miniLogsBottomRef.current?.scrollIntoView({ behavior: 'auto', block: 'end' });
-  }, [miniLogLines, miniLogsPaused]);
-
-  const miniLogClass = (line: string): string => {
-    if (line.includes('[W]') || /\bwarn(ing)?\b/i.test(line)) return 'log-line log-warn';
-    if (line.includes('[E]') || /\berror\b|\bfailed\b/i.test(line)) return 'log-line log-error';
-    if (line.includes('[D]') || /\bdebug\b/i.test(line)) return 'log-line log-debug';
-    if (line.includes('[I]') || /\binfo\b/i.test(line)) return 'log-line log-info';
-    return 'log-line';
   };
 
   // 保存可视化配置：扁平表单值 → buildServerConfigPayload 折叠为嵌套 ServerConfig
@@ -739,14 +643,20 @@ const Configs: React.FC = () => {
               styles={{ body: { padding: 20 } }}
               style={{ height: '100%', minHeight: '520px', display: 'flex', flexDirection: 'column', borderRadius: 10 }}
             >
-              <div style={{ marginBottom: '16px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                <div>
-                  <Text type="secondary" style={{ fontSize: '12px' }}>当前操作实例</Text>
-                  <Title level={4} style={{ margin: '4px 0 0 0' }}>
-                    {activeSnap?.name || activeConfigId}
-                  </Title>
+              <div style={{ marginBottom: '16px' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+                  <div>
+                    <Text type="secondary" style={{ fontSize: '12px' }}>当前操作实例</Text>
+                    <Title level={4} style={{ margin: '4px 0 0 0' }}>
+                      {activeSnap?.name || activeConfigId}
+                    </Title>
+                  </div>
+                  <div>{getStatusBadge(activeSnap?.state)}</div>
                 </div>
-                <div>{getStatusBadge(activeSnap?.state)}</div>
+                {/* 实时运行预览：仅运行中且取到数据时显示（组件内部自管轮询与隐藏） */}
+                <div style={{ marginTop: activeSnap?.state === 'started' ? 10 : 0 }}>
+                  <InstanceLivePreview instanceId={activeConfigId} running={activeSnap?.state === 'started'} />
+                </div>
               </div>
 
               <Tabs
@@ -839,72 +749,10 @@ const Configs: React.FC = () => {
                   },
                   {
                     key: 'logs',
-                    label: <Space><EditOutlined />运行日志速览</Space>,
-                    children: (
-                      <div>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px', gap: 12, flexWrap: 'wrap' }}>
-                          <Space size={10}>
-                            <Badge
-                              status={
-                                miniLogsWsState === 'connected' ? 'success'
-                                : miniLogsWsState === 'connecting' ? 'processing'
-                                : 'default'
-                              }
-                              text={
-                                <Text type="secondary" style={{ fontSize: 12 }}>
-                                  {miniLogsWsState === 'connected' ? '实时流接通'
-                                    : miniLogsWsState === 'connecting' ? '正在连接…'
-                                    : '已断开'} · 最近 {MINI_LOGS_MAX} 行
-                                </Text>
-                              }
-                            />
-                          </Space>
-                          <Space>
-                            <Switch
-                              size="small"
-                              checked={miniLogsPaused}
-                              onChange={setMiniLogsPaused}
-                              checkedChildren="已暂停"
-                              unCheckedChildren="实时滚动"
-                            />
-                            <Button size="small" icon={<DeleteOutlined />} onClick={() => handleClearMiniLogs(activeConfigId)}>
-                              清空
-                            </Button>
-                            <Button size="small" icon={<ReloadOutlined />} onClick={() => loadMiniLogs(activeConfigId)}>
-                              重连
-                            </Button>
-                          </Space>
-                        </div>
-                        {miniLogsLoading && miniLogLines.length === 0 ? (
-                          <div style={{ opacity: 0.5, padding: 16, textAlign: 'center' }}>加载中…</div>
-                        ) : (
-                          <div
-                            className="terminal-container"
-                            style={{
-                              height: 'calc(100vh - 320px)',
-                              minHeight: 420,
-                              maxHeight: '78vh',
-                              margin: 0,
-                              overflowY: 'auto',
-                              position: 'relative',
-                            }}
-                          >
-                            {miniLogLines.length === 0 ? (
-                              <div style={{ opacity: 0.5, padding: 16, textAlign: 'center' }}>
-                                暂无日志，等待 FRPS 输出…
-                              </div>
-                            ) : (
-                              <>
-                                {miniLogLines.map((line, idx) => (
-                                  <div key={idx} className={miniLogClass(line)}>{line}</div>
-                                ))}
-                                <div ref={miniLogsBottomRef} />
-                              </>
-                            )}
-                          </div>
-                        )}
-                      </div>
-                    ),
+                    label: <Space><FileTextOutlined />运行日志</Space>,
+                    children: activeTab === 'logs' ? (
+                      <LogConsole instanceId={activeConfigId} />
+                    ) : null,
                   },
                 ]}
               />
