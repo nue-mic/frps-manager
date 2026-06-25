@@ -36,7 +36,7 @@ opkg install 时 → 只装壳子（不下载二进制）→ enable 服务
 
 `frpsmgrd-fetch` 支持的 CPU（`uname -m` → 拉取的二进制）：x86_64、aarch64、armv7/armv6、i386、riscv64。
 
-> ⚠️ **不支持 mips / mips64 / loongarch64**：frps 服务端依赖 `modernc.org/sqlite`（落指标库 `metrics.db`），其 `modernc.org/libc` 不为这些目标提供平台源文件，goreleaser 发布矩阵里也没有它们的二进制。`frpsmgrd-fetch` 在 mips/loong64 设备上会直接报错退出（避免拉取不存在的资产）。这类设备请在 x86 / ARM / RISC-V 上部署 frps 服务端。这是与姊妹包 [`luci-app-frpcmgrd`](https://github.com/mia-clark/frpc-manager)（frp 客户端，支持 mips）的主要差异。
+> ⚠️ **不支持 mips / mips64 / loongarch64**：frps 服务端依赖 `modernc.org/sqlite`（落指标库 `metrics.db`），其 `modernc.org/libc` 不为这些目标提供平台源文件，goreleaser 发布矩阵里也没有它们的二进制。`frpsmgrd-fetch` 在 mips/loong64 设备上会直接报错退出（避免拉取不存在的资产）。这类设备请在 x86 / ARM / RISC-V 上部署 frps 服务端。这是与姊妹包 [`luci-app-frpcmgrd`](https://github.com/nue-mic/frpc-manager)（frp 客户端，支持 mips）的主要差异。
 
 ---
 
@@ -53,7 +53,7 @@ opkg install 时 → 只装壳子（不下载二进制）→ enable 服务
 
 `frpsmgrd-fetch` 下载前会 `df` 预检 `/usr/bin` 所在分区（需约 32MB），不足则中止并提示配置 extroot。
 
-> 提示：frps 是 **服务端**，通常部署在有公网 IP 的机器上对外提供 frp 接入。在家用路由上跑 frps 服务端属少数场景；多数家庭/旁路由用户要的是 **客户端** [`frpc-manager`](https://github.com/mia-clark/frpc-manager)。
+> 提示：frps 是 **服务端**，通常部署在有公网 IP 的机器上对外提供 frp 接入。在家用路由上跑 frps 服务端属少数场景；多数家庭/旁路由用户要的是 **客户端** [`frpc-manager`](https://github.com/nue-mic/frpc-manager)。
 
 ---
 
