@@ -87,7 +87,7 @@ release:
   prerelease: auto
   mode: replace
   github:
-    owner: mia-clark
+    owner: nue-mic
     name: frps-manager
   # OpenWrt ipk（单个 all 包）随发布一并上传。该 ipk 由 CI 在 goreleaser 之前
   # 用 openwrt/build-ipk.sh 生成到 openwrt-dist/（见 .github/workflows/release.yml）。
@@ -96,9 +96,9 @@ release:
   header: |
     ## frpsmgrd {{ .Tag }}
 
-    Built from [`{{ .ShortCommit }}`](https://github.com/mia-clark/frps-manager/commit/{{ .FullCommit }}).
+    Built from [`{{ .ShortCommit }}`](https://github.com/nue-mic/frps-manager/commit/{{ .FullCommit }}).
   footer: |
     ---
 
-    Container image: `ghcr.io/mia-clark/frps-manager:{{ .Version }}`
-    See [`docs/README-server.md`](https://github.com/mia-clark/frps-manager/blob/main/docs/README-server.md) for deployment.
+    Container image: `ghcr.io/nue-mic/frps-manager:{{ .Version }}`
+    See [`docs/README-server.md`](https://github.com/nue-mic/frps-manager/blob/main/docs/README-server.md) for deployment.
