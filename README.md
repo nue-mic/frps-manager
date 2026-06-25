@@ -84,10 +84,10 @@ curl -fsSL https://gh-raw.966788.xyz/frps-mgr/install.sh | sh -s -- --uninstall
 
 ```sh
 # 交互安装
-sh -c "$(curl -fsSL https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.sh)"
+sh -c "$(curl -fsSL https://raw.githubusercontent.com/nue-mic/frps-manager/main/scripts/install.sh)"
 
 # 全自动
-curl -fsSL https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.sh | sh -s -- -y -p 9000 -t 我的令牌
+curl -fsSL https://raw.githubusercontent.com/nue-mic/frps-manager/main/scripts/install.sh | sh -s -- -y -p 9000 -t 我的令牌
 ```
 
 ### 🪟 Windows 一键安装（管理员 PowerShell）
@@ -96,13 +96,13 @@ curl -fsSL https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts
 
 ```powershell
 # 全自动（默认端口 8080 + 自动生成强随机令牌）
-$env:ASSUME_YES=1; irm https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.ps1 | iex
+$env:ASSUME_YES=1; irm https://raw.githubusercontent.com/nue-mic/frps-manager/main/scripts/install.ps1 | iex
 
 # 全自动 + 指定端口
-$env:FRPSMGR_PORT=9000; $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.ps1 | iex
+$env:FRPSMGR_PORT=9000; $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/nue-mic/frps-manager/main/scripts/install.ps1 | iex
 
 # 全自动 + 指定端口 + 指定令牌（最常用！）
-$env:FRPSMGR_PORT=9000; $env:FRPSMGR_API_TOKEN='我的强随机令牌'; $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.ps1 | iex
+$env:FRPSMGR_PORT=9000; $env:FRPSMGR_API_TOKEN='我的强随机令牌'; $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/nue-mic/frps-manager/main/scripts/install.ps1 | iex
 ```
 
 > Windows PowerShell 通过 `irm | iex` 管道执行脚本时**无法直接传命令行参数**，所以用环境变量代替（`install.ps1` 已支持读取 `FRPSMGR_*` / `ASSUME_YES`）。**自动选最快下载源**（智能代理 + tar/zip 校验防伪 200）。
@@ -125,7 +125,7 @@ curl -fsSL https://gh-raw.966788.xyz/frps-mgr/install.sh | sh -s -- -y -p 9000 -
 
 **Windows**（NSSM 包装为 Windows 服务，**需管理员 PowerShell**）
 ```powershell
-$env:FRPSMGR_PORT=9000; $env:FRPSMGR_API_TOKEN='我的强随机令牌'; $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.ps1 | iex
+$env:FRPSMGR_PORT=9000; $env:FRPSMGR_API_TOKEN='我的强随机令牌'; $env:ASSUME_YES=1; irm https://raw.githubusercontent.com/nue-mic/frps-manager/main/scripts/install.ps1 | iex
 ```
 
 > Linux / macOS 用同一个 `install.sh`（脚本自动识别系统和架构），所以命令一字不差；Windows 是独立 `install.ps1` + NSSM。三套都装完即用 `fms start/status/info` 等统一命令运维。
@@ -168,7 +168,7 @@ $env:FRPSMGR_PORT=9000; $env:FRPSMGR_API_TOKEN='我的强随机令牌'; $env:ASS
 | macOS | launchd | ✅ |
 | 其它（无 systemd/OpenRC） | 打印手动后台运行命令 | 需手动 |
 
-> CPU 架构自动识别：`amd64` / `arm64` / `armv7`（树莓派等） / `riscv64` / `386`。Windows 用户请用 Docker 或到 [Releases](https://github.com/mia-clark/frps-manager/releases) 下载 Windows 版手动运行。
+> CPU 架构自动识别：`amd64` / `arm64` / `armv7`（树莓派等） / `riscv64` / `386`。Windows 用户请用 Docker 或到 [Releases](https://github.com/nue-mic/frps-manager/releases) 下载 Windows 版手动运行。
 
 ---
 
@@ -180,7 +180,7 @@ $env:FRPSMGR_PORT=9000; $env:FRPSMGR_API_TOKEN='我的强随机令牌'; $env:ASS
 docker run -d --name frpsmgrd --network host \
   -e FRPSMGR_API_TOKEN="$(openssl rand -hex 32)" \
   -v $(pwd)/data:/data \
-  ghcr.io/mia-clark/frps-manager:latest
+  ghcr.io/nue-mic/frps-manager:latest
 ```
 
 > 用 `--network host` 才能让里面的 frps worker 监听宿主机端口对外提供服务。
@@ -191,8 +191,8 @@ docker run -d --name frpsmgrd --network host \
 
 ```bash
 mkdir frpsmgrd && cd frpsmgrd
-curl -O https://raw.githubusercontent.com/mia-clark/frps-manager/main/deploy/docker-compose.standalone.yml
-curl -O https://raw.githubusercontent.com/mia-clark/frps-manager/main/deploy/.env.example
+curl -O https://raw.githubusercontent.com/nue-mic/frps-manager/main/deploy/docker-compose.standalone.yml
+curl -O https://raw.githubusercontent.com/nue-mic/frps-manager/main/deploy/.env.example
 mv .env.example .env
 # 编辑 .env，至少把 FRPSMGR_API_TOKEN 设成真实令牌
 docker compose -f docker-compose.standalone.yml up -d
@@ -200,7 +200,7 @@ docker compose -f docker-compose.standalone.yml up -d
 
 ### 方式三：手动下载二进制
 
-到 [Releases](https://github.com/mia-clark/frps-manager/releases) 下载对应平台压缩包，解压后：
+到 [Releases](https://github.com/nue-mic/frps-manager/releases) 下载对应平台压缩包，解压后：
 
 ```bash
 FRPSMGR_API_TOKEN=$(openssl rand -hex 32) ./frpsmgrd serve
