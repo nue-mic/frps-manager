@@ -12,7 +12,7 @@ import (
 
 	frpconfig "github.com/fatedier/frp/pkg/config"
 
-	"github.com/mia-clark/frps-manager/services"
+	"github.com/nue-mic/frps-manager/services"
 )
 
 // runFrpsWorker 是隐藏子命令：在独立进程内跑恰好一个 frps。

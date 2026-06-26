@@ -7,7 +7,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/mia-clark/frps-manager/internal/manager"
+	"github.com/nue-mic/frps-manager/internal/manager"
 )
 
 // UIHandler serves the operator-customizable UI branding (brand name +

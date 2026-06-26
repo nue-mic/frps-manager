@@ -5,9 +5,9 @@ import (
 	"net/http"
 	"strings"
 
-	"github.com/mia-clark/frps-manager/internal/api/middleware"
-	"github.com/mia-clark/frps-manager/internal/appcfg"
-	"github.com/mia-clark/frps-manager/internal/manager"
+	"github.com/nue-mic/frps-manager/internal/api/middleware"
+	"github.com/nue-mic/frps-manager/internal/appcfg"
+	"github.com/nue-mic/frps-manager/internal/manager"
 )
 
 // validLogLevels are the accepted runtime log-level names.

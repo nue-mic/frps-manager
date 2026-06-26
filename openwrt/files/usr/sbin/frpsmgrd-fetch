@@ -25,7 +25,7 @@
 # =============================================================================
 set -eu
 
-REPO="mia-clark/frps-manager"
+REPO="nue-mic/frps-manager"
 BIN_NAME="frpsmgrd"
 INSTALL_DIR="/usr/bin"
 LIBDIR="/usr/lib/frpsmgrd"

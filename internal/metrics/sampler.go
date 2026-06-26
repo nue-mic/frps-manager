@@ -11,7 +11,7 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/mia-clark/frps-manager/internal/eventbus"
+	"github.com/nue-mic/frps-manager/internal/eventbus"
 )
 
 // InstanceSource is the subset of the Manager the sampler needs: which

@@ -8,11 +8,11 @@ import (
 
 	"github.com/go-chi/chi/v5"
 
-	"github.com/mia-clark/frps-manager/internal/api/middleware"
-	"github.com/mia-clark/frps-manager/internal/appcfg"
-	"github.com/mia-clark/frps-manager/internal/manager"
-	"github.com/mia-clark/frps-manager/internal/metrics"
-	"github.com/mia-clark/frps-manager/web"
+	"github.com/nue-mic/frps-manager/internal/api/middleware"
+	"github.com/nue-mic/frps-manager/internal/appcfg"
+	"github.com/nue-mic/frps-manager/internal/manager"
+	"github.com/nue-mic/frps-manager/internal/metrics"
+	"github.com/nue-mic/frps-manager/web"
 )
 
 // Deps bundles the collaborators that handlers need.

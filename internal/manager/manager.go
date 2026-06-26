@@ -14,9 +14,9 @@ import (
 	"strings"
 	"sync"
 
-	"github.com/mia-clark/frps-manager/internal/eventbus"
-	"github.com/mia-clark/frps-manager/pkg/config"
-	"github.com/mia-clark/frps-manager/pkg/consts"
+	"github.com/nue-mic/frps-manager/internal/eventbus"
+	"github.com/nue-mic/frps-manager/pkg/config"
+	"github.com/nue-mic/frps-manager/pkg/consts"
 )
 
 // Options configures the Manager.

@@ -5,8 +5,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mia-clark/frps-manager/internal/sysinfo"
-	"github.com/mia-clark/frps-manager/pkg/version"
+	"github.com/nue-mic/frps-manager/internal/sysinfo"
+	"github.com/nue-mic/frps-manager/pkg/version"
 )
 
 // SystemHandler exposes /health, /version and /api/v1/system/*.

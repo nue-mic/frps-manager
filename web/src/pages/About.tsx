@@ -42,16 +42,16 @@ interface VersionResp {
   build_date?: string;
 }
 
-const APP_REPO = 'https://github.com/mia-clark/frps-manager';
+const APP_REPO = 'https://github.com/nue-mic/frps-manager';
 const UPSTREAM_FRP_REPO = 'https://github.com/fatedier/frp';
-const APP_RELEASES = 'https://github.com/mia-clark/frps-manager/releases';
-const APP_ISSUES = 'https://github.com/mia-clark/frps-manager/issues';
+const APP_RELEASES = 'https://github.com/nue-mic/frps-manager/releases';
+const APP_ISSUES = 'https://github.com/nue-mic/frps-manager/issues';
 const APP_DOCS_PATH = '/api/docs/';
 
 const INSTALL_URL_CN = 'https://gh-raw.966788.xyz/frps-mgr/install.sh';
-const INSTALL_URL_GH = 'https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.sh';
-const INSTALL_URL_PS1 = 'https://raw.githubusercontent.com/mia-clark/frps-manager/main/scripts/install.ps1';
-const DOCKER_IMAGE = 'ghcr.io/mia-clark/frps-manager:latest';
+const INSTALL_URL_GH = 'https://raw.githubusercontent.com/nue-mic/frps-manager/main/scripts/install.sh';
+const INSTALL_URL_PS1 = 'https://raw.githubusercontent.com/nue-mic/frps-manager/main/scripts/install.ps1';
+const DOCKER_IMAGE = 'ghcr.io/nue-mic/frps-manager:latest';
 
 const About: React.FC = () => {
   const { token } = antdTheme.useToken();
@@ -286,7 +286,7 @@ function renderInfoTab(opts: {
       <SectionTitle icon={<LinkOutlined />}>相关链接</SectionTitle>
       <Space wrap size={[8, 8]}>
         <Button icon={<GithubOutlined />} href={APP_REPO} target="_blank" rel="noopener noreferrer" type="primary">
-          本项目 · mia-clark/frps-manager
+          本项目 · nue-mic/frps-manager
         </Button>
         <Button icon={<GithubOutlined />} href={UPSTREAM_FRP_REPO} target="_blank" rel="noopener noreferrer">
           上游 · fatedier/frp (内嵌 {version.frp || '—'})
@@ -343,7 +343,7 @@ function renderInstallTab(opts: { token: TokenLike; copyText: (s: string) => voi
   const winCustom = `$env:FRPSMGR_PORT=9000; $env:FRPSMGR_API_TOKEN='我的强随机令牌'; $env:ASSUME_YES=1; irm ${INSTALL_URL_PS1} | iex`;
   const linuxFull = `curl -fsSL ${INSTALL_URL_CN} | sh -s -- -y -p 9000 -t 我的强随机令牌`;
   const manualBin = `# 1. 到 Releases 下载对应平台压缩包
-curl -LO https://github.com/mia-clark/frps-manager/releases/latest/download/frpsmgrd_linux_amd64.tar.gz
+curl -LO https://github.com/nue-mic/frps-manager/releases/latest/download/frpsmgrd_linux_amd64.tar.gz
 
 # 2. 解压
 tar -xzf frpsmgrd_linux_amd64.tar.gz
@@ -485,8 +485,8 @@ FRPSMGR_API_TOKEN=change-me-to-a-real-strong-token`;
 
   const standaloneFetch = `# 一行下载现成 compose 与 .env 模板
 mkdir frpsmgrd && cd frpsmgrd
-curl -fsSL https://raw.githubusercontent.com/mia-clark/frps-manager/main/deploy/docker-compose.standalone.yml -o docker-compose.yml
-curl -fsSL https://raw.githubusercontent.com/mia-clark/frps-manager/main/deploy/.env.example -o .env
+curl -fsSL https://raw.githubusercontent.com/nue-mic/frps-manager/main/deploy/docker-compose.standalone.yml -o docker-compose.yml
+curl -fsSL https://raw.githubusercontent.com/nue-mic/frps-manager/main/deploy/.env.example -o .env
 
 # 改 .env: 填入 FRPSMGR_API_TOKEN
 docker compose up -d`;

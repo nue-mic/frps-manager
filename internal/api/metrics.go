@@ -6,7 +6,7 @@ import (
 	"net/http"
 	"strconv"
 
-	"github.com/mia-clark/frps-manager/internal/metrics"
+	"github.com/nue-mic/frps-manager/internal/metrics"
 )
 
 // MetricsHandler serves /api/v1/metrics/* (history traffic) and /api/v1/alerts/*

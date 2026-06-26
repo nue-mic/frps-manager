@@ -16,8 +16,8 @@ import (
 	"strings"
 	"time"
 
-	"github.com/mia-clark/frps-manager/internal/manager"
-	"github.com/mia-clark/frps-manager/pkg/config"
+	"github.com/nue-mic/frps-manager/internal/manager"
+	"github.com/nue-mic/frps-manager/pkg/config"
 )
 
 // ImportExportHandler implements /api/v1/import/* and /api/v1/export/*.

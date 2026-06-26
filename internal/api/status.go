@@ -3,7 +3,7 @@ package api
 import (
 	"net/http"
 
-	"github.com/mia-clark/frps-manager/internal/manager"
+	"github.com/nue-mic/frps-manager/internal/manager"
 )
 
 // StatusHandler serves /api/v1/configs/{id}/status.

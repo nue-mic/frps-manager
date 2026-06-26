@@ -311,7 +311,7 @@ const Login: React.FC = () => {
               }}
             >
               <ATypoLink
-                href="https://github.com/mia-clark/frps-manager"
+                href="https://github.com/nue-mic/frps-manager"
                 target="_blank"
                 style={{ color: 'rgba(255,255,255,0.6)' }}
               >

@@ -10,9 +10,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/mia-clark/frps-manager/internal/eventbus"
-	"github.com/mia-clark/frps-manager/pkg/consts"
-	"github.com/mia-clark/frps-manager/pkg/util"
+	"github.com/nue-mic/frps-manager/internal/eventbus"
+	"github.com/nue-mic/frps-manager/pkg/consts"
+	"github.com/nue-mic/frps-manager/pkg/util"
 )
 
 // instance owns a single frps server lifecycle. Unlike the old frpc model
